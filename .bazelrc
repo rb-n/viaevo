@@ -1,0 +1,6 @@
+# Let's sandbox the executables to prevent inadverent damage to the system.
+# https://bazel.build/docs/sandboxing#sandboxing-strategies
+# The run and test commands should inherit from build.
+# https://bazel.build/run/bazelrc#option-defaults
+build --spawn_strategy=linux-sandbox
+
