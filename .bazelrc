@@ -3,4 +3,5 @@
 # The run and test commands should inherit from build.
 # https://bazel.build/run/bazelrc#option-defaults
 build --spawn_strategy=linux-sandbox
-
+build --cxxopt='-std=c++14'
+test --test_output=streamed
