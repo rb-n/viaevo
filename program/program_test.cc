@@ -13,6 +13,8 @@ TEST(ProgramTest, CreateExecuteSimpleSmall) {
   std::shared_ptr<viaevo::Program> program =
       viaevo::Program::CreateSimpleSmall();
 
+  std::vector<int> default_results{10, 0, 0, 0, 0, 0, 3, 3, 3, 3, 3};
+
   EXPECT_EQ(program->last_syscall(), 9999)
       << "Last syscall not initialized correctly";
   EXPECT_EQ(program->last_exit_status(), -9999)
@@ -30,7 +32,8 @@ TEST(ProgramTest, CreateExecuteSimpleSmall) {
       << "Last exit status should be invalid for 'default' Execute (#1)";
   EXPECT_EQ(program->last_signal(), 9)
       << "Last signal should be 9 (SIGKILL) for 'default' Execute (#1)";
-  // TODO: Check results properly populated.
+  EXPECT_EQ(program->last_results(), default_results)
+      << "Unexpected last results after a 'default' Execute (#1)";
 
   // Terminate the elf process before entering main (small max_ptrace_stops
   // passed to Execute).
@@ -42,8 +45,8 @@ TEST(ProgramTest, CreateExecuteSimpleSmall) {
       << "Last exit status should be invalid for 'short' Execute (#2)";
   EXPECT_EQ(program->last_signal(), 9)
       << "Last signal should be 9 (SIGKILL) for 'short' Execute (#2)";
-  EXPECT_TRUE(program->last_results().empty())
-      << "last_results should be empty after a 'short' Execute (#2)";
+  EXPECT_EQ(program->last_results(), default_results)
+      << "Unexpected last results after a 'short' Execute (#2)";
 
   // Run the elf to completion (large max_ptrace_stops passed to Execute).
   int ptrace_stops_count_full = program->Execute(999'999);
@@ -56,7 +59,7 @@ TEST(ProgramTest, CreateExecuteSimpleSmall) {
   EXPECT_EQ(program->last_signal(), 5)
       << "Last signal should be 5 (SIGTRAP) for 'full' Execute (#3)";
   EXPECT_TRUE(program->last_results().empty())
-      << "last_results should be empty after 'full' Execute (#3)";
+      << "Last results should be empty after 'full' Execute (#3)";
 
   EXPECT_EQ(ptrace_stops_count_full, ptrace_stops_count_default + 1)
       << "'Full' Execute should have one more ptrace stop compared to "
