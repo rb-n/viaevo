@@ -452,7 +452,7 @@ void Program::ClearLastState() {
 
 std::vector<char> Program::GetElfCode() const {
   if (main_offset_in_elf_ == (Elf64_Addr)-1)
-    myfail("main location unknown");
+    myfail("location to get main unknown");
 
   off_t offset = lseek(elf_mem_fd_, main_offset_in_elf_, SEEK_SET);
   if (offset != (off_t)main_offset_in_elf_)
@@ -464,6 +464,22 @@ std::vector<char> Program::GetElfCode() const {
     myfail("getting elf code failed");
 
   return elf_code;
+}
+
+void Program::SetElfCode(const std::vector<char> &elf_code) {
+  if (elf_code.size() != main_st_size_)
+    myfail("elf code to set has incorrect size");
+
+  if (main_offset_in_elf_ == (Elf64_Addr)-1)
+    myfail("location to set main unknown");
+
+  off_t offset = lseek(elf_mem_fd_, main_offset_in_elf_, SEEK_SET);
+  if (offset != (off_t)main_offset_in_elf_)
+    myfail("set elf code lseek failed");
+
+  ssize_t nwritten = write(elf_mem_fd_, elf_code.data(), elf_code.size());
+  if (nwritten != elf_code.size())
+    myfail("setting elf code failed");
 }
 
 } // namespace viaevo

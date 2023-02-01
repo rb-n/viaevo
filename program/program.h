@@ -38,8 +38,9 @@ public:
   // Returns the number of ptrace stops during the process lifetime.
   int Execute(int max_ptrace_stops = -1);
 
-  // Returns the ELF's evolvable code (main).
+  // Get and set the ELF's evolvable code (main).
   std::vector<char> GetElfCode() const;
+  void SetElfCode(const std::vector<char> &elf_code);
 
   unsigned long long last_syscall() const { return last_syscall_; }
   int last_exit_status() const { return last_exit_status_; }

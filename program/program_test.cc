@@ -66,12 +66,16 @@ TEST(ProgramTest, CreateExecuteSimpleSmall) {
          "'default' Execute.";
 }
 
-TEST(ProgramTest, GetElfCodeSimpleSmall) {
+TEST(ProgramTest, GetSetElfCodeSimpleSmall) {
   std::shared_ptr<viaevo::Program> program =
       viaevo::Program::CreateSimpleSmall();
 
   std::vector<char> elf_code = program->GetElfCode();
   EXPECT_FALSE(elf_code.empty());
+
+  std::vector<char> nops(elf_code.size(), 0x90);
+  program->SetElfCode(nops);
+  EXPECT_EQ(program->GetElfCode(), nops);
 
   // for (int i = 0; i < (int)elf_code.size(); ++i) {
   //   if (i % 16 == 0)
