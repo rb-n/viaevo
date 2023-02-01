@@ -22,9 +22,9 @@ namespace viaevo {
 class Program final {
 public:
   explicit Program(const char *filename);
-  Program(const char *filename, Elf64_Addr main_st_value, uint64_t main_st_size,
-          Elf64_Addr results_offset_in_data, uint64_t results_st_size,
-          int expected_ptrace_stops);
+  Program(const char *filename, Elf64_Addr main_offset_in_elf,
+          uint64_t main_st_size, Elf64_Addr results_offset_in_data,
+          uint64_t results_st_size, int expected_ptrace_stops);
   ~Program();
 
   bool IsInitialized() const;
@@ -37,6 +37,9 @@ public:
   // If max_ptrace_stops is -1, at most expected_ptrace_stops_ will be allowed.
   // Returns the number of ptrace stops during the process lifetime.
   int Execute(int max_ptrace_stops = -1);
+
+  // Returns the ELF's evolvable code (main).
+  std::vector<char> GetElfCode() const;
 
   unsigned long long last_syscall() const { return last_syscall_; }
   int last_exit_status() const { return last_exit_status_; }
@@ -87,7 +90,7 @@ private:
   std::vector<int> last_results_;
 
   // ELF symbol table values and sizes for main and results.
-  Elf64_Addr main_st_value_ = -1;
+  Elf64_Addr main_offset_in_elf_ = -1;
   uint64_t main_st_size_ = -1;
   Elf64_Addr results_offset_in_data_ = -1;
   uint64_t results_st_size_ = -1;
@@ -98,7 +101,7 @@ private:
   // Default values for respective member variables for individual ELFs in
   // //elfs. These should be initialized to -1 and set the correct value during
   // the first pass of the factory method for each ELF.
-  static Elf64_Addr main_st_value_simple_small_;
+  static Elf64_Addr main_offset_in_elf_simple_small_;
   static uint64_t main_st_size_simple_small_;
   static Elf64_Addr results_offset_in_data_simple_small_;
   static uint64_t results_st_size_simple_small_;

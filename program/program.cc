@@ -34,7 +34,7 @@ void myfail(const char *s) {
 
 } // namespace
 
-Elf64_Addr Program::main_st_value_simple_small_ = -1;
+Elf64_Addr Program::main_offset_in_elf_simple_small_ = -1;
 uint64_t Program::main_st_size_simple_small_ = -1;
 Elf64_Addr Program::results_offset_in_data_simple_small_ = -1;
 uint64_t Program::results_st_size_simple_small_ = -1;
@@ -43,10 +43,10 @@ int Program::expected_ptrace_stops_simple_small_ = -1;
 
 Program::Program(const char *filename) { SetupElfInMemory(filename); }
 
-Program::Program(const char *filename, Elf64_Addr main_st_value,
+Program::Program(const char *filename, Elf64_Addr main_offset_in_elf,
                  uint64_t main_st_size, Elf64_Addr results_offset_in_data,
                  uint64_t results_st_size, int expected_ptrace_stops)
-    : main_st_value_(main_st_value), main_st_size_(main_st_size),
+    : main_offset_in_elf_(main_offset_in_elf), main_st_size_(main_st_size),
       results_offset_in_data_(results_offset_in_data),
       results_st_size_(results_st_size),
       expected_ptrace_stops_(expected_ptrace_stops) {
@@ -59,7 +59,7 @@ Program::~Program() {
 }
 
 bool Program::IsInitialized() const {
-  return (elf_mem_fd_ != -1 && main_st_value_ != (Elf64_Addr)-1 &&
+  return (elf_mem_fd_ != -1 && main_offset_in_elf_ != (Elf64_Addr)-1 &&
           main_st_size_ != (uint64_t)-1 &&
           results_offset_in_data_ != (Elf64_Addr)-1 &&
           results_st_size_ != (uint64_t)-1 && expected_ptrace_stops_ != -1);
@@ -70,7 +70,7 @@ std::shared_ptr<Program> Program::CreateSimpleSmall() {
   if (expected_ptrace_stops_simple_small_ == -1) {
     Program p("elfs/simple_small");
     p.InitializeElfSymbolData();
-    main_st_value_simple_small_ = p.main_st_value_;
+    main_offset_in_elf_simple_small_ = p.main_offset_in_elf_;
     main_st_size_simple_small_ = p.main_st_size_;
     results_offset_in_data_simple_small_ = p.results_offset_in_data_;
     results_st_size_simple_small_ = p.results_st_size_;
@@ -79,8 +79,8 @@ std::shared_ptr<Program> Program::CreateSimpleSmall() {
     expected_ptrace_stops_simple_small_ = p.Execute() - 1;
   }
   return std::make_shared<Program>(
-      "elfs/simple_small", main_st_value_simple_small_,
-      main_st_value_simple_small_, results_offset_in_data_simple_small_,
+      "elfs/simple_small", main_offset_in_elf_simple_small_,
+      main_st_size_simple_small_, results_offset_in_data_simple_small_,
       results_st_size_simple_small_, expected_ptrace_stops_simple_small_);
 }
 
@@ -227,9 +227,14 @@ void Program::InitializeElfSymbolData() {
   if (name_to_syms_index.count("main") < 1)
     myfail("symbol main not found");
   int main_index = name_to_syms_index["main"];
-  main_st_value_ = syms[main_index].st_value;
+
+  if (name_to_shdrs_index.count(".text") < 1)
+    myfail("section header .text not found");
+  int text_index = name_to_shdrs_index[".text"];
+
+  main_offset_in_elf_ = syms[main_index].st_value - shdrs[text_index].sh_addr +
+                        shdrs[text_index].sh_offset;
   main_st_size_ = syms[main_index].st_size;
-  // printf("main: %lx, size: %ld\n", main_st_value_, main_st_size_);
 
   if (name_to_syms_index.count("data_start") < 1)
     myfail("symbol data_start not found");
@@ -241,9 +246,6 @@ void Program::InitializeElfSymbolData() {
   results_offset_in_data_ =
       syms[results_index].st_value - syms[data_start_index].st_value;
   results_st_size_ = syms[results_index].st_size;
-  // printf("results: %lx, (offset: %ld), size: %ld\n",
-  //        syms[results_index].st_value, results_offset_in_data_,
-  //        results_st_size_);
 }
 
 int Program::Execute(int max_ptrace_stops) {
@@ -446,6 +448,22 @@ void Program::ClearLastState() {
   last_exit_status_ = kInvalidExitStatus;
   last_signal_ = kInvalidSignal;
   last_results_.clear();
+}
+
+std::vector<char> Program::GetElfCode() const {
+  if (main_offset_in_elf_ == (Elf64_Addr)-1)
+    myfail("main location unknown");
+
+  off_t offset = lseek(elf_mem_fd_, main_offset_in_elf_, SEEK_SET);
+  if (offset != (off_t)main_offset_in_elf_)
+    myfail("get elf code lseek failed");
+
+  std::vector<char> elf_code(main_st_size_);
+  ssize_t nread = read(elf_mem_fd_, elf_code.data(), main_st_size_);
+  if (nread != (ssize_t)main_st_size_)
+    myfail("getting elf code failed");
+
+  return elf_code;
 }
 
 } // namespace viaevo
