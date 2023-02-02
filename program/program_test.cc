@@ -77,12 +77,54 @@ TEST(ProgramTest, GetSetElfCodeSimpleSmall) {
   program->SetElfCode(nops);
   EXPECT_EQ(program->GetElfCode(), nops);
 
+  // Setting with a vector of a smaller size (10) than the code in the ELF.
+  std::vector<char> nops_10(10, 0x90);
+  EXPECT_DEATH(program->SetElfCode(nops_10),
+               "elf code to set has incorrect size");
+
+  // Setting with a vector of a smaller size (10k) than the code in the ELF.
+  std::vector<char> nops_10k(10'000, 0x90);
+  EXPECT_DEATH(program->SetElfCode(nops_10k),
+               "elf code to set has incorrect size");
+
   // for (int i = 0; i < (int)elf_code.size(); ++i) {
   //   if (i % 16 == 0)
   //     printf("\n");
   //   printf("%3x", (unsigned char)elf_code[i]);
   // }
   // printf("\n");
+}
+
+TEST(ProgramTest, GetSetElfInputsSimpleSmall) {
+  std::shared_ptr<viaevo::Program> program =
+      viaevo::Program::CreateSimpleSmall();
+
+  std::vector<int> elf_inputs = program->GetElfInputs();
+  EXPECT_EQ(elf_inputs.size(), 101);
+  EXPECT_EQ(elf_inputs[100], 17);
+  elf_inputs.resize(5);
+  std::vector<int> expected{100, 42, 17, 42, 17};
+  EXPECT_EQ(elf_inputs, expected);
+
+  // Setting with a vector of a smaller size (3) than inputs in the ELF.
+  std::vector<int> short_vector{7, 7, 7};
+  program->SetElfInputs(short_vector);
+  elf_inputs = program->GetElfInputs();
+  EXPECT_EQ(elf_inputs.size(), 101);
+  EXPECT_EQ(elf_inputs[100], 17);
+  elf_inputs.resize(5);
+  expected = {7, 7, 7, 42, 17};
+  EXPECT_EQ(elf_inputs, expected);
+
+  // Setting with a vector of a matching size to inputs in the ELF.
+  std::vector<int> zeros_101(101, 0);
+  program->SetElfInputs(zeros_101);
+  EXPECT_EQ(program->GetElfInputs(), zeros_101);
+
+  // Setting with a vector of a larger size (200) than inputs in the ELF.
+  std::vector<int> zeros_200(200, 0);
+  EXPECT_DEATH(program->SetElfInputs(zeros_200),
+               "elf inputs to set are too large");
 }
 
 } // namespace
