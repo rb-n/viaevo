@@ -12,3 +12,19 @@ cc_test(
     "@com_google_googletest//:gtest_main",
   ],
 )
+
+cc_library(
+  name="random_mock",
+  srcs=["random_mock.cc"],
+  hdrs=["random_mock.h"],
+  deps=[":random"],
+)
+
+cc_test(
+  name="random_mock_test",
+  srcs=["random_mock_test.cc"],
+  deps=[
+    ":random_mock",
+    "@com_google_googletest//:gtest_main",
+  ],
+)

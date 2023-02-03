@@ -16,8 +16,9 @@ typedef std::mt19937 mt_type;
 class Random {
 public:
   Random();
+  
   void Seed(mt_type::result_type value);
-  mt_type::result_type operator()();
+  virtual mt_type::result_type operator()();
 
   template <class CharT, class Traits>
   friend std::basic_ostream<CharT, Traits> &
