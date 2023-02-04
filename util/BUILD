@@ -2,6 +2,7 @@ cc_library(
   name="random",
   srcs=["random.cc"],
   hdrs=["random.h"],
+  visibility=["//mutator:__pkg__"],
 )
 
 cc_test(
@@ -18,6 +19,7 @@ cc_library(
   srcs=["random_mock.cc"],
   hdrs=["random_mock.h"],
   deps=[":random"],
+  visibility=["//mutator:__pkg__"],
 )
 
 cc_test(

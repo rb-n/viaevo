@@ -3,6 +3,7 @@ cc_library(
   srcs=["program.cc"],
   hdrs=["program.h"],
   linkopts=["-lseccomp"],
+  visibility=["//mutator:__pkg__"],
 )
 
 cc_test(

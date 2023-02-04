@@ -1,7 +1,10 @@
 cc_binary(
   name = "simple_small",
   srcs = ["simple_small.c"],
-  visibility=["//program:__pkg__"],
+  visibility=[
+    "//program:__pkg__",
+    "//mutator:__pkg__",
+  ],
 )
 
 sh_test(
