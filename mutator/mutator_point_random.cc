@@ -5,9 +5,6 @@
 
 #include "mutator_point_random.h"
 
-// TODO: Remove.
-#include <iostream>
-
 namespace viaevo {
 
 MutatorPointRandom::MutatorPointRandom(Random &gen) : gen_(gen) {}
@@ -23,9 +20,6 @@ void MutatorPointRandom::Mutate(std::shared_ptr<Program> target,
   auto index = pos / element_size;
   auto bit_pos = pos % element_size;
   code[index] ^= (1 << bit_pos);
-
-  std::cout << random_number << " " << element_size << " " << pos << " "
-            << index << " " << bit_pos << " " << (int)code[index] << "\n";
 
   target->SetElfCode(code);
 }

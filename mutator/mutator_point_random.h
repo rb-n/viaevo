@@ -23,7 +23,7 @@ public:
   // target's code in a random location.
   virtual void Mutate(std::shared_ptr<Program> target,
                       std::shared_ptr<Program> parent1,
-                      std::shared_ptr<Program> parent2);
+                      std::shared_ptr<Program> parent2) override;
 
 protected:
   // Random number generator.

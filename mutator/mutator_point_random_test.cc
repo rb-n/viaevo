@@ -34,7 +34,10 @@ TEST(MutatorPointRandomTest, Mutate) {
   std::vector<char> new_target_code = target->GetElfCode();
   std::vector<char> new_parent_code = parent->GetElfCode();
 
+  // Parent code should be unaltered.
   EXPECT_EQ(old_parent_code, new_parent_code);
+  // New target code should be different from parent1 code due to the introduced
+  // mutation.
   EXPECT_NE(old_parent_code, new_target_code);
 
   std::vector<char> parent_start(old_parent_code.begin(),
@@ -47,11 +50,11 @@ TEST(MutatorPointRandomTest, Mutate) {
   // The third bit is flipped, hence ^4.
   EXPECT_EQ(old_parent_code[5], new_target_code[5] ^ 4);
 
-  std::vector<char> parent_end(old_parent_code.begin() + 5,
+  std::vector<char> parent_end(old_parent_code.begin() + 6,
                                old_parent_code.end());
-  std::vector<char> target_end(new_target_code.begin() + 5,
+  std::vector<char> target_end(new_target_code.begin() + 6,
                                new_target_code.end());
-  EXPECT_EQ(parent_start, target_start);
+  EXPECT_EQ(parent_end, target_end);
 }
 
 } // namespace
