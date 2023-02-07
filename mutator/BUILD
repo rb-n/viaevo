@@ -50,8 +50,28 @@ cc_library(
   name="mutator_composite",
   srcs=["mutator_composite.cc"],
   hdrs=["mutator_composite.h"],
+  deps=[":mutator"],
+)
+
+cc_library(
+  name="mutator_composite_random",
+  srcs=["mutator_composite_random.cc"],
+  hdrs=["mutator_composite_random.h"],
   deps=[
-    ":mutator",
+    ":mutator_composite",
+    "//util:random",
   ],
 )
 
+cc_test(
+  name="mutator_composite_random_test",
+  srcs=["mutator_composite_random_test.cc"],
+  deps=[
+    ":mutator_point_random",
+    ":mutator_recombine_random",
+    ":mutator_composite_random",
+    "//util:random_mock",
+    "@com_google_googletest//:gtest_main",
+  ],
+  data=["//elfs:simple_small"],
+)
