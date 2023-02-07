@@ -46,3 +46,12 @@ cc_test(
   data=["//elfs:simple_small"],
 )
 
+cc_library(
+  name="mutator_composite",
+  srcs=["mutator_composite.cc"],
+  hdrs=["mutator_composite.h"],
+  deps=[
+    ":mutator",
+  ],
+)
+
