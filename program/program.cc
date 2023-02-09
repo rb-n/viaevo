@@ -549,4 +549,11 @@ void Program::SetElfInputs(const std::vector<int> &elf_inputs) {
   if (nwritten != (off_t)(elf_inputs.size() * element_size))
     myfail("setting elf inputs failed");
 }
+
+void Program::ResetCurrentScore() { current_score_ = 0; }
+
+void Program::IncrementCurrentScoreBy(long long increment) {
+  current_score_ += increment;
+}
+
 } // namespace viaevo

@@ -127,6 +127,21 @@ TEST(ProgramTest, GetSetElfInputsSimpleSmall) {
                "elf inputs to set are too large");
 }
 
+TEST(ProgramTest, ResetIncrementCurrentScore) {
+  std::shared_ptr<viaevo::Program> program =
+      viaevo::Program::CreateSimpleSmall();
+
+  EXPECT_EQ(program->current_score(), 0);
+
+  program->IncrementCurrentScoreBy(10);
+  EXPECT_EQ(program->current_score(), 10);
+  program->IncrementCurrentScoreBy(5);
+  EXPECT_EQ(program->current_score(), 15);
+
+  program->ResetCurrentScore();
+  EXPECT_EQ(program->current_score(), 0);
+}
+
 } // namespace
 
 // int main(int argc, char **argv) {

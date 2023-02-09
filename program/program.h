@@ -50,6 +50,14 @@ public:
   // variable.
   void SetElfInputs(const std::vector<int> &elf_inputs);
 
+  // Resets current_score_ to 0. E.g. at the beginning of (multiple) round(s) of
+  // evaluation of the program on different inputs.
+  void ResetCurrentScore();
+  // Increment current_score_ by an increment. Called by a Scorer after an
+  // evaluation of the Program on a single set of inputs.
+  void IncrementCurrentScoreBy(long long increment);
+
+  long long current_score() { return current_score_; }
   unsigned long long last_syscall() const { return last_syscall_; }
   int last_exit_status() const { return last_exit_status_; }
   int last_signal() const { return last_signal_; }
@@ -97,6 +105,10 @@ private:
 
   // Results from the last completed execution of the program.
   std::vector<int> last_results_;
+
+  // Current score set by e.g. a Scorer reflects an accumulated performance of
+  // the program on recent (sets of) inputs.
+  long long current_score_ = 0;
 
   // ELF symbol table values and sizes for main and results.
   Elf64_Addr main_offset_in_elf_ = -1;
