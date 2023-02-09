@@ -2,7 +2,10 @@ cc_library(
   name="random",
   srcs=["random.cc"],
   hdrs=["random.h"],
-  visibility=["//mutator:__pkg__"],
+  visibility=[
+    "//mutator:__pkg__",
+    "//evolver:__pkg__",
+  ],
 )
 
 cc_test(

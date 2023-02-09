@@ -1,0 +1,11 @@
+cc_library(
+  name="evolver_adhoc",
+  srcs=["evolver_adhoc.cc"],
+  hdrs=["evolver_adhoc.h"],
+  deps=[
+    "//mutator:mutator",
+    "//scorer:scorer",
+    "//program:program",
+    "//util:random",
+  ],
+)

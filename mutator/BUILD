@@ -2,6 +2,7 @@ cc_library(
   name="mutator",
   hdrs=["mutator.h"],
   deps=["//program:program"],
+  visibility=["//evolver:__pkg__"],
 )
 
 cc_library(
