@@ -36,7 +36,7 @@ public:
 protected:
   // Size of population in each generation (iteration) is (mu_ + lambda_).
   // Number of parents selected in each iteration.
-  int mu_ = 25;
+  int mu_ = 30;
   // Number of parents selected randomly in each iterations as opposed to (mu_ -
   // phi_) parents that are selected based on their scores. mu_ >= phi_;
   int phi_ = 5;

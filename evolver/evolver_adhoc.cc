@@ -6,6 +6,8 @@
 #include "evolver_adhoc.h"
 
 #include <algorithm>
+#include <iomanip>
+#include <iostream>
 #include <memory>
 
 namespace viaevo {
@@ -66,6 +68,7 @@ void EvolverAdHoc::Run() {
     // -----------------------------------------
     // TODO: Enable multiple evaluation rounds (new inputs/execution/evaluation)
     // per generation.
+    long long best_score = 0;
     scorer_.ResetInputs();
     for (int i = 0; i < mu_ + lambda_; ++i) {
       programs_[i]->ResetCurrentScore();
@@ -73,6 +76,12 @@ void EvolverAdHoc::Run() {
       programs_[i]->Execute();
       programs_[i]->IncrementCurrentScoreBy(
           scorer_.Score(programs_[i]->last_results()));
+      best_score = std::max(best_score, programs_[i]->current_score());
+    }
+    std::cout << "\rG: " << std::setw(8) << current_generation_
+              << " best score: " << best_score << std::flush;
+    if (current_generation_ % 100 == 0) {
+      std::cout << "\n";
     }
   }
 }
