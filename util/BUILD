@@ -23,7 +23,10 @@ cc_library(
   srcs=["random_mock.cc"],
   hdrs=["random_mock.h"],
   deps=[":random"],
-  visibility=["//mutator:__pkg__"],
+  visibility=[
+    "//mutator:__pkg__",
+    "//evolver:__pkg__",
+  ],
 )
 
 cc_test(

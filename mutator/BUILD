@@ -15,6 +15,7 @@ cc_library(
   ],
   visibility=[
     "//examples:__subpackages__",
+    "//evolver:__pkg__",
   ],
 )
 

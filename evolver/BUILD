@@ -12,3 +12,17 @@ cc_library(
     "//examples:__subpackages__",
   ],
 )
+
+cc_test(
+  name="evolver_adhoc_test",
+  srcs=["evolver_adhoc_test.cc"],
+  deps=[
+    ":evolver_adhoc",
+    "//util:random_mock",
+    "//mutator:mutator_point_random",
+    "//program:program",
+    "//scorer:scorer_mock",
+    "@com_google_googletest//:gtest_main",
+  ],
+  data=["//elfs:simple_small"],
+)

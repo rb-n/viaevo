@@ -5,6 +5,7 @@ cc_binary(
     "//program:__pkg__",
     "//mutator:__pkg__",
     "//examples:__subpackages__",
+    "//evolver:__pkg__",
   ],
 )
 
