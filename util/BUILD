@@ -5,6 +5,7 @@ cc_library(
   visibility=[
     "//mutator:__pkg__",
     "//evolver:__pkg__",
+    "//examples:__subpackages__",
   ],
 )
 

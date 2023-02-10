@@ -13,6 +13,9 @@ cc_library(
     ":mutator",
     "//util:random",
   ],
+  visibility=[
+    "//examples:__subpackages__",
+  ],
 )
 
 cc_test(
@@ -33,6 +36,9 @@ cc_library(
   deps=[
     ":mutator",
     "//util:random",
+  ],
+  visibility=[
+    "//examples:__subpackages__",
   ],
 )
 
@@ -61,6 +67,9 @@ cc_library(
   deps=[
     ":mutator_composite",
     "//util:random",
+  ],
+  visibility=[
+    "//examples:__subpackages__",
   ],
 )
 

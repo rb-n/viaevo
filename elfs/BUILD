@@ -4,6 +4,7 @@ cc_binary(
   visibility=[
     "//program:__pkg__",
     "//mutator:__pkg__",
+    "//examples:__subpackages__",
   ],
 )
 

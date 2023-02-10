@@ -8,4 +8,7 @@ cc_library(
     "//program:program",
     "//util:random",
   ],
+  visibility=[
+    "//examples:__subpackages__",
+  ],
 )
