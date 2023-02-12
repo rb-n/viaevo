@@ -19,14 +19,14 @@ TEST(ScorerGuessValueTest, Score) {
   viaevo::ScorerGuessValue scorer1024(1024);
 
   // Results the same as initialized in //elfs/simple_small.c
-  std::vector<int> results{10, 0, 0, 0, 0, 0, 3, 3, 3, 3, 3};
+  std::vector<int> results{30, 0, 0, 0, 0, 0, 3, 3, 3, 3, 3};
 
   EXPECT_EQ(scorer1.Score(results), 0);
   EXPECT_EQ(scorer42.Score(results), 0);
   EXPECT_EQ(scorer1024.Score(results), 0);
 
   // Changing elements other than results[1] should increments score by 1.
-  results[0] = 5;
+  results[5] = 5;
   EXPECT_EQ(scorer1.Score(results), 1);
   EXPECT_EQ(scorer42.Score(results), 1);
   EXPECT_EQ(scorer1024.Score(results), 1);
@@ -65,7 +65,7 @@ TEST(ScorerGuessValueTest, Score) {
   EXPECT_EQ(scorer42.Score(results), 52);
   EXPECT_EQ(scorer1024.Score(results), 48);
 
-  results[0] = 10;
+  results[5] = 0;
   results[7] = 3;
   EXPECT_EQ(scorer1.Score(results), 48);
   EXPECT_EQ(scorer42.Score(results), 52);

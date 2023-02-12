@@ -32,6 +32,9 @@ int inputs[] = {100,
 // clang-format on
 
 int main() {
+  // Change result[0] as a control to confirm (before code evolution) that this
+  // code runs.
+  results[0] = 20;
   // Create a suffiecient number instructions in this template program to be
   // modified during the evolution of the program. Ideally(?), these would be
   // nop instuctions only, but only a short stretch of nop instructions is

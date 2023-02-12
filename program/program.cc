@@ -8,7 +8,6 @@
 #include <elf.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <memory>
 #include <seccomp.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -83,7 +82,7 @@ std::shared_ptr<Program> Program::CreateSimpleSmall() {
     results_st_size_simple_small_ = p.results_st_size_;
     // The expected number of ptrace stops prior to executing is the full number
     // minus one (minus the final exit syscall).
-    expected_ptrace_stops_simple_small_ = p.Execute() - 1;
+    expected_ptrace_stops_simple_small_ = p.Execute();
   }
   return std::make_shared<Program>(
       "elfs/simple_small", main_offset_in_elf_simple_small_,
@@ -423,14 +422,20 @@ void Program::ReadLastResultsFromElfProcess(pid_t elf_pid) {
   std::string proc_comm;
   char proc_state;
   unsigned long dummy_ul;
-  unsigned long start_data, end_data;
+  unsigned long start_code, end_code, kstkeip, start_data, end_data;
 
   std::ifstream ifs(proc_file_name);
   ifs >> proc_pid >> proc_comm >> proc_state;
   // Skip to start_data.
   // NOTE: some of the fields are not unsigned, using the unsigned long dummy_ul
   // variable may not be appropriate.
-  for (int i = 0; i < 41; ++i)
+  for (int i = 0; i < 22; ++i)
+    ifs >> dummy_ul;
+  ifs >> start_code >> end_code;
+  for (int i = 0; i < 2; ++i)
+    ifs >> dummy_ul;
+  ifs >> kstkeip;
+  for (int i = 0; i < 14; ++i)
     ifs >> dummy_ul;
   ifs >> start_data >> end_data;
 

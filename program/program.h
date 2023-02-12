@@ -111,9 +111,9 @@ private:
   long long current_score_ = 0;
 
   // ELF symbol table values and sizes for main and results.
-  Elf64_Addr main_offset_in_elf_ = -1;
+  Elf64_Addr main_offset_in_elf_ = -1; // offset from .text beginning
   uint64_t main_st_size_ = -1;
-  Elf64_Addr inputs_offset_in_elf_ = -1;
+  Elf64_Addr inputs_offset_in_elf_ = -1; // offset from .data beginning
   uint64_t inputs_st_size_ = -1;
   Elf64_Addr results_offset_in_data_ = -1;
   uint64_t results_st_size_ = -1;

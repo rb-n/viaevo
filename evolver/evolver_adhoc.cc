@@ -8,7 +8,6 @@
 #include <algorithm>
 #include <iomanip>
 #include <iostream>
-#include <memory>
 
 namespace viaevo {
 
@@ -49,6 +48,8 @@ void EvolverAdHoc::SelectParents() {
 // TODO: Put the three stages in individual member functions and add unit
 // tests for those.
 void EvolverAdHoc::Run() {
+  long long best_overall_score = 0;
+  long long max_score = scorer_.MaxScore();
   while (current_generation_ < max_generations_) {
     ++current_generation_;
 
@@ -72,26 +73,34 @@ void EvolverAdHoc::Run() {
     // -----------------------------------------
     // TODO: Enable multiple evaluation rounds (new
     // inputs/execution/evaluation) per generation.
-    long long best_score = 0;
     scorer_.ResetInputs();
+    long long best_generation_score = 0;
+    std::vector<int> best_generation_results;
     for (int i = 0; i < mu_ + lambda_; ++i) {
       programs_[i]->ResetCurrentScore();
       programs_[i]->SetElfInputs(scorer_.current_inputs());
       programs_[i]->Execute();
       programs_[i]->IncrementCurrentScoreBy(
           scorer_.Score(programs_[i]->last_results()));
-      best_score = std::max(best_score, programs_[i]->current_score());
+      if (best_generation_score < programs_[i]->current_score()) {
+        best_generation_score = programs_[i]->current_score();
+        best_generation_results = programs_[i]->last_results();
+      }
     }
-    if (best_score > 0) {
-      std::cout << "\nG: " << std::setw(8) << current_generation_
-                << " best score: " << best_score << "\n"
-                << std::flush;
-    }
-
     std::cout << "\rG: " << std::setw(8) << current_generation_
-              << " best score: " << best_score << std::flush;
-    if (current_generation_ % 10000 == 0) {
+              << " | best score: " << best_generation_score << " (overall: "
+              << std::max(best_overall_score, best_generation_score) << ") "
+              << std::flush;
+    if (best_overall_score < best_generation_score) {
+      best_overall_score = best_generation_score;
+      std::cout << "\n            | best results: ";
+      for (auto itm : best_generation_results)
+        std::cout << itm << " ";
       std::cout << "\n";
+    }
+    if(best_overall_score == max_score) {
+      std::cout << "DONE! :)\n";
+      break;
     }
   }
 }

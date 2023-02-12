@@ -14,6 +14,9 @@ TEST(ProgramTest, CreateExecuteSimpleSmall) {
       viaevo::Program::CreateSimpleSmall();
 
   std::vector<int> default_results{10, 0, 0, 0, 0, 0, 3, 3, 3, 3, 3};
+  std::vector<int> changed_results = default_results;
+  // results[0] is changed in main() of //elfs:simple_small from 10 to 20.
+  changed_results[0] = 20;
 
   EXPECT_EQ(program->last_syscall(), 9999)
       << "Last syscall not initialized correctly";
@@ -26,13 +29,15 @@ TEST(ProgramTest, CreateExecuteSimpleSmall) {
 
   // Execute the elf, should be terminated when 'attempting' exit.
   int ptrace_stops_count_default = program->Execute();
-  EXPECT_NE(program->last_syscall(), 231)
+  EXPECT_EQ(program->last_syscall(), 231)
       << "Last syscall should not be exit for 'default' Execute (#1)";
   EXPECT_EQ(program->last_exit_status(), -9999)
       << "Last exit status should be invalid for 'default' Execute (#1)";
   EXPECT_EQ(program->last_signal(), 9)
       << "Last signal should be 9 (SIGKILL) for 'default' Execute (#1)";
-  EXPECT_EQ(program->last_results(), default_results)
+  // main() in //elfs:simple_small executes therefore the value of results[0] is
+  // changed to 20.
+  EXPECT_EQ(program->last_results(), changed_results)
       << "Unexpected last results after a 'default' Execute (#1)";
 
   // Terminate the elf process before entering main (small max_ptrace_stops
@@ -45,6 +50,8 @@ TEST(ProgramTest, CreateExecuteSimpleSmall) {
       << "Last exit status should be invalid for 'short' Execute (#2)";
   EXPECT_EQ(program->last_signal(), 9)
       << "Last signal should be 9 (SIGKILL) for 'short' Execute (#2)";
+  // main() in //elfs:simple_small does not execute therefore the value of
+  // results[0] remains 10.
   EXPECT_EQ(program->last_results(), default_results)
       << "Unexpected last results after a 'short' Execute (#2)";
 
@@ -61,9 +68,9 @@ TEST(ProgramTest, CreateExecuteSimpleSmall) {
   EXPECT_TRUE(program->last_results().empty())
       << "Last results should be empty after 'full' Execute (#3)";
 
-  EXPECT_EQ(ptrace_stops_count_full, ptrace_stops_count_default + 1)
-      << "'Full' Execute should have one more ptrace stop compared to "
-         "'default' Execute.";
+  EXPECT_EQ(ptrace_stops_count_full, ptrace_stops_count_default)
+      << "'Full' Execute should have the same amount of ptrace stops compared "
+         "to 'default' Execute.";
 }
 
 TEST(ProgramTest, GetSetElfCodeSimpleSmall) {
@@ -143,8 +150,3 @@ TEST(ProgramTest, ResetIncrementCurrentScore) {
 }
 
 } // namespace
-
-// int main(int argc, char **argv) {
-//   ::testing::InitGoogleTest(&argc, argv);
-//   return RUN_ALL_TESTS();
-// }

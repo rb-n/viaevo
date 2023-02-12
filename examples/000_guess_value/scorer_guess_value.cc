@@ -24,10 +24,8 @@ long long ScorerGuessValue::Score(const std::vector<int> &results) const {
   // elements.
   // Also, this scoring is based on results from //elfs/simple_small.c.
   if (results[1] == 0) {
-    if (results[0] != 10) {
-      ++score;
-    }
-
+    // results[0] is disregarded as it is changed in main of //elfs:simple_small
+    // from 10 to 20.
     for (int i = 2; i < 6; ++i) {
       if (results[i] != 0) {
         ++score;
