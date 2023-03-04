@@ -62,7 +62,8 @@ public:
   unsigned long long last_syscall() const { return last_syscall_; }
   unsigned long long last_rip_offset() const { return last_rip_offset_; }
   int last_exit_status() const { return last_exit_status_; }
-  int last_signal() const { return last_signal_; }
+  int last_term_signal() const { return last_term_signal_; }
+  int last_stop_signal() const { return last_stop_signal_; }
   const std::vector<int> &last_results() const { return last_results_; }
   int expected_ptrace_stops() const { return expected_ptrace_stops_; }
 
@@ -108,7 +109,8 @@ private:
   int last_exit_status_ = kInvalidExitStatus;
 
   static constexpr int kInvalidSignal = -1;
-  int last_signal_ = kInvalidSignal;
+  int last_term_signal_ = kInvalidSignal;
+  int last_stop_signal_ = kInvalidSignal;
 
   // Results from the last completed execution of the program.
   std::vector<int> last_results_;

@@ -24,8 +24,10 @@ TEST(ProgramTest, CreateExecuteSimpleSmall) {
       << "Last rip offset not initialized correctly";
   EXPECT_EQ(program->last_exit_status(), -9999)
       << "Last exit status not initialized correctly";
-  EXPECT_EQ(program->last_signal(), -1)
-      << "Last signal not initialized correctly";
+  EXPECT_EQ(program->last_term_signal(), -1)
+      << "Last term signal not initialized correctly";
+  EXPECT_EQ(program->last_stop_signal(), -1)
+      << "Last stop signal not initialized correctly";
   EXPECT_TRUE(program->last_results().empty())
       << "last_results not empty before first Execute";
 
@@ -37,8 +39,10 @@ TEST(ProgramTest, CreateExecuteSimpleSmall) {
       << "Last rip offset should not be -1 for 'default' Execute (#1)";
   EXPECT_EQ(program->last_exit_status(), -9999)
       << "Last exit status should be invalid for 'default' Execute (#1)";
-  EXPECT_EQ(program->last_signal(), 9)
-      << "Last signal should be 9 (SIGKILL) for 'default' Execute (#1)";
+  EXPECT_EQ(program->last_term_signal(), 9)
+      << "Last term signal should be 9 (SIGKILL) for 'default' Execute (#1)";
+  EXPECT_EQ(program->last_stop_signal(), 5)
+      << "Last stop signal should be 5 (SIGTRAP) for 'default' Execute (#1)";
   // main() in //elfs:simple_small executes therefore the value of results[0] is
   // changed to 20.
   EXPECT_EQ(program->last_results(), changed_results)
@@ -54,8 +58,10 @@ TEST(ProgramTest, CreateExecuteSimpleSmall) {
       << "Last rip offset should not be -1 for 'short' Execute (#2)";
   EXPECT_EQ(program->last_exit_status(), -9999)
       << "Last exit status should be invalid for 'short' Execute (#2)";
-  EXPECT_EQ(program->last_signal(), 9)
-      << "Last signal should be 9 (SIGKILL) for 'short' Execute (#2)";
+  EXPECT_EQ(program->last_term_signal(), 9)
+      << "Last term signal should be 9 (SIGKILL) for 'short' Execute (#2)";
+  EXPECT_EQ(program->last_stop_signal(), 5)
+      << "Last stop signal should be 5 (SIGTRAP) for 'short' Execute (#2)";
   // main() in //elfs:simple_small does not execute therefore the value of
   // results[0] remains 10.
   EXPECT_EQ(program->last_results(), default_results)
@@ -69,8 +75,10 @@ TEST(ProgramTest, CreateExecuteSimpleSmall) {
       << "last_syscall should be exit for 'full' Execute (#3)";
   EXPECT_EQ(program->last_exit_status(), 0)
       << "Last exit status should be 0 for 'full' Execute (#3)";
-  EXPECT_EQ(program->last_signal(), 5)
-      << "Last signal should be 5 (SIGTRAP) for 'full' Execute (#3)";
+  EXPECT_EQ(program->last_term_signal(), -1)
+      << "Last term signal should be -1 (not set) for 'full' Execute (#3)";
+  EXPECT_EQ(program->last_stop_signal(), 5)
+      << "Last stop signal should be 5 (SIGTRAP) for 'full' Execute (#3)";
   EXPECT_TRUE(program->last_results().empty())
       << "Last results should be empty after 'full' Execute (#3)";
 
@@ -175,7 +183,6 @@ TEST(ProgramTest, LastRipOffset) {
   program->SetElfCode(elf_code);
 
   program->Execute();
-  // EXPECT_EQ(0, -1);
   EXPECT_EQ(program->last_syscall(), -1)
       << "Last syscall should be -1 for 'default' Execute";
   EXPECT_EQ(program->last_rip_offset(), nop_position)
@@ -184,8 +191,12 @@ TEST(ProgramTest, LastRipOffset) {
   EXPECT_EQ(program->last_exit_status(), -9999)
       << "Last exit status should be invalid (" << -9999
       << ") for 'default' Execute";
-  EXPECT_EQ(program->last_signal(), 9)
-      << "Last signal should be 4 (SIGILL) for 'default' Execute";
+  EXPECT_EQ(program->last_term_signal(), 9)
+      << "Last term signal should be " << 9
+      << " (SIGKILL) for 'default' Execute";
+  EXPECT_EQ(program->last_stop_signal(), 4)
+      << "Last term signal should be " << 4
+      << " (SIGILL) for 'default' Execute";
   EXPECT_EQ(program->last_results(), expected_results)
       << "Unexpected last results should be for 'default' Execute";
 }

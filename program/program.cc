@@ -318,11 +318,11 @@ int Program::MonitorElfProcess(pid_t elf_pid, int max_ptrace_stops) {
       last_exit_status_ = WEXITSTATUS(status);
       // printf("exited, status=%d\n", last_exit_status_);
     } else if (WIFSIGNALED(status)) {
-      last_signal_ = WTERMSIG(status);
+      last_term_signal_ = WTERMSIG(status);
       // printf("killed by signal %d\n", last_signal_);
     } else if (WIFSTOPPED(status)) {
       ++ptrace_stops_count;
-      last_signal_ = WSTOPSIG(status);
+      last_stop_signal_ = WSTOPSIG(status);
       // printf("%4d stopped by signal %d", ptrace_stops_count, last_signal_);
 
       if (ptrace(PTRACE_GETREGS, elf_pid, 0, &regs) == -1) {
@@ -354,9 +354,9 @@ int Program::MonitorElfProcess(pid_t elf_pid, int max_ptrace_stops) {
         if (kill(elf_pid, SIGKILL) == -1)
           myfail("kill failed");
       } else {
-        if (last_signal_ != 5) {
+        if (last_stop_signal_ != 5) {
           // E.g. SISGSEGV for and invalid program.
-          if (ptrace(PTRACE_CONT, elf_pid, 0, last_signal_) == -1)
+          if (ptrace(PTRACE_CONT, elf_pid, 0, last_stop_signal_) == -1)
             myfail("PTRACE_CONT failed");
 
         } else {
@@ -504,7 +504,8 @@ void Program::ClearLastState() {
   last_syscall_ = kInvalidSyscall;
   last_rip_offset_ = -1;
   last_exit_status_ = kInvalidExitStatus;
-  last_signal_ = kInvalidSignal;
+  last_term_signal_ = kInvalidSignal;
+  last_stop_signal_ = kInvalidSignal;
   last_results_.clear();
 }
 
