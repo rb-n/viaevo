@@ -26,8 +26,8 @@ namespace viaevo {
 // reflecting common approaches in Evolutionary Computation.
 class EvolverAdHoc {
 public:
-  EvolverAdHoc(int mu, int phi, int lambda, Scorer &scorer, Mutator &mutator, Random &gen,
-               int max_generations);
+  EvolverAdHoc(int mu, int phi, int lambda, Scorer &scorer, Mutator &mutator,
+               Random &gen, int evaluations_per_program, int max_generations);
   // Selects mu_ parents by bringing them to the front of programs_.
   virtual void SelectParents();
   // Runs the evolution.
@@ -54,6 +54,10 @@ protected:
   Mutator &mutator_;
   // Random number generator.
   Random &gen_;
+
+  // Number of evaluations (with different inputs) a Scorer performs on each
+  // program in each generation. Scores are accumulated.
+  int evaluations_per_program_ = 1;
 
   // Current and the maximum number of generations (iterations) for the
   // evolution.

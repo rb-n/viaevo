@@ -23,9 +23,10 @@ class Program final {
 public:
   explicit Program(const char *filename);
   Program(const char *filename, Elf64_Addr main_offset_in_elf,
-          uint64_t main_st_size, Elf64_Addr inputs_offset_in_elf,
-          uint64_t inputs_st_size, Elf64_Addr results_offset_in_data,
-          uint64_t results_st_size, int expected_ptrace_stops);
+          Elf64_Addr main_offset_in_text, uint64_t main_st_size,
+          Elf64_Addr inputs_offset_in_elf, uint64_t inputs_st_size,
+          Elf64_Addr results_offset_in_data, uint64_t results_st_size,
+          int expected_ptrace_stops);
   ~Program();
 
   bool IsInitialized() const;
@@ -59,6 +60,7 @@ public:
 
   long long current_score() { return current_score_; }
   unsigned long long last_syscall() const { return last_syscall_; }
+  unsigned long long last_rip_offset() const { return last_rip_offset_; }
   int last_exit_status() const { return last_exit_status_; }
   int last_signal() const { return last_signal_; }
   const std::vector<int> &last_results() const { return last_results_; }
@@ -82,8 +84,10 @@ private:
   // function).
   void RunElfProcess();
 
-  // Reads last_results_ from the ELF process.
-  void ReadLastResultsFromElfProcess(pid_t elf_pid);
+  // Reads last_results_ from the ELF process. Also updates last_rip_offset_ -
+  // as /proc/[elf_pid]/stat is parsed here and also provides codestart address.
+  void ReadLastResultsAndLastRipOffsetFromElfProcess(pid_t elf_pid,
+                                                     unsigned long long rip);
 
   // Clears last_* member variables.
   void ClearLastState();
@@ -93,9 +97,12 @@ private:
   // between executions.
   int elf_mem_fd_ = -1;
 
-  // Last syscall, status, and signal observed in the elf process.
+  // Last syscall, rip (instruction pointer) offset (vs. main), status, and
+  // signal observed in the elf process.
   static constexpr unsigned long long kInvalidSyscall = 9999;
   unsigned long long last_syscall_ = kInvalidSyscall;
+
+  unsigned long long last_rip_offset_ = -1;
 
   static constexpr int kInvalidExitStatus = -9999;
   int last_exit_status_ = kInvalidExitStatus;
@@ -111,7 +118,8 @@ private:
   long long current_score_ = 0;
 
   // ELF symbol table values and sizes for main and results.
-  Elf64_Addr main_offset_in_elf_ = -1; // offset from .text beginning
+  Elf64_Addr main_offset_in_elf_ = -1;  // offset from elf beginning
+  Elf64_Addr main_offset_in_text_ = -1; // offset from .text beginning
   uint64_t main_st_size_ = -1;
   Elf64_Addr inputs_offset_in_elf_ = -1; // offset from .data beginning
   uint64_t inputs_st_size_ = -1;
@@ -125,6 +133,7 @@ private:
   // //elfs. These should be initialized to -1 and set the correct value during
   // the first pass of the factory method for each ELF.
   static Elf64_Addr main_offset_in_elf_simple_small_;
+  static Elf64_Addr main_offset_in_text_simple_small_;
   static uint64_t main_st_size_simple_small_;
   static Elf64_Addr inputs_offset_in_elf_simple_small_;
   static uint64_t inputs_st_size_simple_small_;

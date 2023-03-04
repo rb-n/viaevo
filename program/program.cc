@@ -34,6 +34,7 @@ void myfail(const char *s) {
 } // namespace
 
 Elf64_Addr Program::main_offset_in_elf_simple_small_ = -1;
+Elf64_Addr Program::main_offset_in_text_simple_small_ = -1;
 uint64_t Program::main_st_size_simple_small_ = -1;
 Elf64_Addr Program::inputs_offset_in_elf_simple_small_ = -1;
 uint64_t Program::inputs_st_size_simple_small_ = -1;
@@ -45,10 +46,12 @@ int Program::expected_ptrace_stops_simple_small_ = -1;
 Program::Program(const char *filename) { SetupElfInMemory(filename); }
 
 Program::Program(const char *filename, Elf64_Addr main_offset_in_elf,
-                 uint64_t main_st_size, Elf64_Addr inputs_offset_in_elf,
-                 uint64_t inputs_st_size, Elf64_Addr results_offset_in_data,
-                 uint64_t results_st_size, int expected_ptrace_stops)
-    : main_offset_in_elf_(main_offset_in_elf), main_st_size_(main_st_size),
+                 Elf64_Addr main_offset_in_text, uint64_t main_st_size,
+                 Elf64_Addr inputs_offset_in_elf, uint64_t inputs_st_size,
+                 Elf64_Addr results_offset_in_data, uint64_t results_st_size,
+                 int expected_ptrace_stops)
+    : main_offset_in_elf_(main_offset_in_elf),
+      main_offset_in_text_(main_offset_in_text), main_st_size_(main_st_size),
       inputs_offset_in_elf_(inputs_offset_in_elf),
       inputs_st_size_(inputs_st_size),
       results_offset_in_data_(results_offset_in_data),
@@ -75,6 +78,7 @@ std::shared_ptr<Program> Program::CreateSimpleSmall() {
     Program p("elfs/simple_small");
     p.InitializeElfSymbolData();
     main_offset_in_elf_simple_small_ = p.main_offset_in_elf_;
+    main_offset_in_text_simple_small_ = p.main_offset_in_text_;
     main_st_size_simple_small_ = p.main_st_size_;
     inputs_offset_in_elf_simple_small_ = p.inputs_offset_in_elf_;
     inputs_st_size_simple_small_ = p.inputs_st_size_;
@@ -86,9 +90,10 @@ std::shared_ptr<Program> Program::CreateSimpleSmall() {
   }
   return std::make_shared<Program>(
       "elfs/simple_small", main_offset_in_elf_simple_small_,
-      main_st_size_simple_small_, inputs_offset_in_elf_simple_small_,
-      inputs_st_size_simple_small_, results_offset_in_data_simple_small_,
-      results_st_size_simple_small_, expected_ptrace_stops_simple_small_);
+      main_offset_in_text_simple_small_, main_st_size_simple_small_,
+      inputs_offset_in_elf_simple_small_, inputs_st_size_simple_small_,
+      results_offset_in_data_simple_small_, results_st_size_simple_small_,
+      expected_ptrace_stops_simple_small_);
 }
 
 void Program::SetupElfInMemory(const char *filename) {
@@ -239,6 +244,7 @@ void Program::InitializeElfSymbolData() {
     myfail("symbol main not found");
   int main_index = name_to_syms_index["main"];
 
+  main_offset_in_text_ = syms[main_index].st_value - shdrs[text_index].sh_addr;
   // NOTE: Risk of underflow for an unsigned variable? (Same below for inputs.)
   main_offset_in_elf_ =
       syms[main_index].st_value -
@@ -319,8 +325,20 @@ int Program::MonitorElfProcess(pid_t elf_pid, int max_ptrace_stops) {
       last_signal_ = WSTOPSIG(status);
       // printf("%4d stopped by signal %d", ptrace_stops_count, last_signal_);
 
-      if (ptrace(PTRACE_GETREGS, elf_pid, 0, &regs) == -1)
-        myfail("PTRACE_GETREGS failed");
+      if (ptrace(PTRACE_GETREGS, elf_pid, 0, &regs) == -1) {
+        // myfail("PTRACE_GETREGS failed");
+        // This call sometimes fails with "No such process". These failures seem
+        // random and not clear at this point what is the cause. Instead of
+        // failing here, will retry one more time, print error messages and just
+        // return.
+        // TODO: Find/fix the root cause, also check for resource leaks.
+        printf("\n");
+        perror("PTRACE_GETREGS failed");
+        if (ptrace(PTRACE_GETREGS, elf_pid, 0, &regs) == -1) {
+          perror("PTRACE_GETREGS retry failed (ignoring..)");
+          return -1;
+        }
+      }
 
       last_syscall_ = regs.orig_rax;
 
@@ -332,7 +350,7 @@ int Program::MonitorElfProcess(pid_t elf_pid, int max_ptrace_stops) {
         // additional syscall or signal is assumed to originate from the
         // program's (evolved) code and ends the process. The (result) data are
         // explored at this point. The child process is killed.
-        ReadLastResultsFromElfProcess(elf_pid);
+        ReadLastResultsAndLastRipOffsetFromElfProcess(elf_pid, regs.rip);
         if (kill(elf_pid, SIGKILL) == -1)
           myfail("kill failed");
       } else {
@@ -342,8 +360,16 @@ int Program::MonitorElfProcess(pid_t elf_pid, int max_ptrace_stops) {
             myfail("PTRACE_CONT failed");
 
         } else {
+          // if (ptrace_stops_count == max_ptrace_stops - 1) {
+          //   --ptrace_stops_count;
+          //   ReadLastResultsFromElfProcess(elf_pid, regs.rip);
+          //   printf(" last_rip_offset_: %lld\n", last_rip_offset_);
+          //   if (ptrace(PTRACE_SINGLESTEP, elf_pid, NULL, NULL) == -1)
+          //     myfail("PTRACE_SINGLESTEP failed");
+          // } else {
           if (ptrace(PTRACE_SYSCALL, elf_pid, 0, 0) == -1)
             myfail("PTRACE_SYSCALL failed");
+          // }
         }
       }
     } else if (WIFCONTINUED(status)) {
@@ -414,7 +440,8 @@ void Program::RunElfProcess() {
     myfail("fexecve failed");
 }
 
-void Program::ReadLastResultsFromElfProcess(pid_t elf_pid) {
+void Program::ReadLastResultsAndLastRipOffsetFromElfProcess(
+    pid_t elf_pid, unsigned long long rip) {
   std::string proc_file_name =
       std::string("/proc/") + std::to_string(elf_pid) + std::string("/stat");
 
@@ -441,6 +468,8 @@ void Program::ReadLastResultsFromElfProcess(pid_t elf_pid) {
 
   if (start_data > end_data)
     myfail("start_data > end_data");
+
+  last_rip_offset_ = rip - start_code - main_offset_in_text_;
 
   // printf("pid: %d, comm: %s, state: %c\n", proc_pid, proc_comm.c_str(),
   //        proc_state);
@@ -473,6 +502,7 @@ void Program::ReadLastResultsFromElfProcess(pid_t elf_pid) {
 
 void Program::ClearLastState() {
   last_syscall_ = kInvalidSyscall;
+  last_rip_offset_ = -1;
   last_exit_status_ = kInvalidExitStatus;
   last_signal_ = kInvalidSignal;
   last_results_.clear();

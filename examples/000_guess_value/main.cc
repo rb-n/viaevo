@@ -25,10 +25,12 @@ int main() {
   mutator_composite.AppendMutator(mutator_point);
   mutator_composite.AppendMutator(mutator_recombine);
 
-  viaevo::ScorerGuessValue scorer(42);
+  // viaevo::ScorerGuessValue scorer(42);
+  // viaevo::ScorerGuessValue scorer(0xFFFFFFFF);
+  viaevo::ScorerGuessValue scorer(63'451'913);
 
-  viaevo::EvolverAdHoc evolver(60, 10, 140, scorer, mutator_composite, gen,
-                               10000);
+  viaevo::EvolverAdHoc evolver(60, 10, 140, scorer, mutator_composite, gen, 5,
+                               1000000);
   evolver.Run();
 
   return 0;

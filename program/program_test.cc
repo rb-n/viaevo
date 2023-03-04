@@ -20,6 +20,8 @@ TEST(ProgramTest, CreateExecuteSimpleSmall) {
 
   EXPECT_EQ(program->last_syscall(), 9999)
       << "Last syscall not initialized correctly";
+  EXPECT_EQ(program->last_rip_offset(), -1)
+      << "Last rip offset not initialized correctly";
   EXPECT_EQ(program->last_exit_status(), -9999)
       << "Last exit status not initialized correctly";
   EXPECT_EQ(program->last_signal(), -1)
@@ -31,6 +33,8 @@ TEST(ProgramTest, CreateExecuteSimpleSmall) {
   int ptrace_stops_count_default = program->Execute();
   EXPECT_EQ(program->last_syscall(), 231)
       << "Last syscall should not be exit for 'default' Execute (#1)";
+  EXPECT_NE(program->last_rip_offset(), -1)
+      << "Last rip offset should not be -1 for 'default' Execute (#1)";
   EXPECT_EQ(program->last_exit_status(), -9999)
       << "Last exit status should be invalid for 'default' Execute (#1)";
   EXPECT_EQ(program->last_signal(), 9)
@@ -46,6 +50,8 @@ TEST(ProgramTest, CreateExecuteSimpleSmall) {
       << "observed ptrace stops different from max (#2)";
   EXPECT_NE(program->last_syscall(), 231)
       << "last_syscall should not be exit for 'short' Execute (#2)";
+  EXPECT_NE(program->last_rip_offset(), -1)
+      << "Last rip offset should not be -1 for 'short' Execute (#2)";
   EXPECT_EQ(program->last_exit_status(), -9999)
       << "Last exit status should be invalid for 'short' Execute (#2)";
   EXPECT_EQ(program->last_signal(), 9)
@@ -89,7 +95,7 @@ TEST(ProgramTest, GetSetElfCodeSimpleSmall) {
   EXPECT_DEATH(program->SetElfCode(nops_10),
                "elf code to set has incorrect size");
 
-  // Setting with a vector of a smaller size (10k) than the code in the ELF.
+  // Setting with a vector of a larger size (10k) than the code in the ELF.
   std::vector<char> nops_10k(10'000, 0x90);
   EXPECT_DEATH(program->SetElfCode(nops_10k),
                "elf code to set has incorrect size");
@@ -147,6 +153,41 @@ TEST(ProgramTest, ResetIncrementCurrentScore) {
 
   program->ResetCurrentScore();
   EXPECT_EQ(program->current_score(), 0);
+}
+
+TEST(ProgramTest, LastRipOffset) {
+  std::shared_ptr<viaevo::Program> program =
+      viaevo::Program::CreateSimpleSmall();
+
+  std::vector<int> expected_results{20, 0, 0, 0, 0, 0, 3, 3, 3, 3, 3};
+
+  std::vector<char> elf_code = program->GetElfCode();
+
+  int nop_position = 23;
+  EXPECT_EQ(elf_code[nop_position], '\x90')
+      << "Instruction at offset " << nop_position
+      << " vs main in the simple_small binary is not nop (\\x90). This may be "
+         "compiler dependent. The value of the nop_position variable in this "
+         "test needs to be changed accordingly.";
+
+  // Create an illegal instruction.
+  elf_code[nop_position] = '\x06';
+  program->SetElfCode(elf_code);
+
+  program->Execute();
+  // EXPECT_EQ(0, -1);
+  EXPECT_EQ(program->last_syscall(), -1)
+      << "Last syscall should be -1 for 'default' Execute";
+  EXPECT_EQ(program->last_rip_offset(), nop_position)
+      << "Last rip offset should be " << nop_position
+      << "  for 'default' Execute";
+  EXPECT_EQ(program->last_exit_status(), -9999)
+      << "Last exit status should be invalid (" << -9999
+      << ") for 'default' Execute";
+  EXPECT_EQ(program->last_signal(), 9)
+      << "Last signal should be 4 (SIGILL) for 'default' Execute";
+  EXPECT_EQ(program->last_results(), expected_results)
+      << "Unexpected last results should be for 'default' Execute";
 }
 
 } // namespace

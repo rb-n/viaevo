@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <iomanip>
 #include <iostream>
+#include <unordered_map>
 
 namespace viaevo {
 
@@ -22,9 +23,11 @@ public:
 } // namespace
 
 EvolverAdHoc::EvolverAdHoc(int mu, int phi, int lambda, Scorer &scorer,
-                           Mutator &mutator, Random &gen, int max_generations)
+                           Mutator &mutator, Random &gen,
+                           int evaluations_per_program, int max_generations)
     : mu_(mu), phi_(phi), lambda_(lambda), scorer_(scorer), mutator_(mutator),
-      gen_(gen), max_generations_(max_generations) {
+      gen_(gen), evaluations_per_program_(evaluations_per_program),
+      max_generations_(max_generations) {
   for (int i = 0; i < mu_ + lambda_; ++i) {
     programs_.push_back(Program::CreateSimpleSmall());
   }
@@ -49,7 +52,7 @@ void EvolverAdHoc::SelectParents() {
 // tests for those.
 void EvolverAdHoc::Run() {
   long long best_overall_score = 0;
-  long long max_score = scorer_.MaxScore();
+  long long max_score = evaluations_per_program_ * scorer_.MaxScore();
   while (current_generation_ < max_generations_) {
     ++current_generation_;
 
@@ -75,22 +78,36 @@ void EvolverAdHoc::Run() {
     // inputs/execution/evaluation) per generation.
     scorer_.ResetInputs();
     long long best_generation_score = 0;
+    std::unordered_map<unsigned long long, int> rip_offset_counts;
+    unsigned long long top_rip_offset = -1;
+    int top_rip_offset_count = 0;
     std::vector<int> best_generation_results;
     for (int i = 0; i < mu_ + lambda_; ++i) {
       programs_[i]->ResetCurrentScore();
-      programs_[i]->SetElfInputs(scorer_.current_inputs());
-      programs_[i]->Execute();
-      programs_[i]->IncrementCurrentScoreBy(
-          scorer_.Score(programs_[i]->last_results()));
+      for (int j = 0; j < evaluations_per_program_; ++j) {
+        programs_[i]->SetElfInputs(scorer_.current_inputs());
+        programs_[i]->Execute();
+        programs_[i]->IncrementCurrentScoreBy(
+            scorer_.Score(programs_[i]->last_results()));
+      }
       if (best_generation_score < programs_[i]->current_score()) {
         best_generation_score = programs_[i]->current_score();
         best_generation_results = programs_[i]->last_results();
       }
+      unsigned long long rip_offset = programs_[i]->last_rip_offset();
+      ++rip_offset_counts[rip_offset];
+      if (rip_offset_counts[rip_offset] > top_rip_offset_count) {
+        top_rip_offset_count = rip_offset_counts[rip_offset];
+        top_rip_offset = rip_offset;
+      }
     }
     std::cout << "\rG: " << std::setw(8) << current_generation_
               << " | best score: " << best_generation_score << " (overall: "
-              << std::max(best_overall_score, best_generation_score) << ") "
-              << std::flush;
+              << std::max(best_overall_score, best_generation_score) << "/"
+              << max_score << ") "
+              << " | rip distinct: " << rip_offset_counts.size()
+              << " top: " << top_rip_offset
+              << " count: " << top_rip_offset_count << std::flush;
     if (best_overall_score < best_generation_score) {
       best_overall_score = best_generation_score;
       std::cout << "\n            | best results: ";
@@ -98,7 +115,7 @@ void EvolverAdHoc::Run() {
         std::cout << itm << " ";
       std::cout << "\n";
     }
-    if(best_overall_score == max_score) {
+    if (best_overall_score == max_score) {
       std::cout << "DONE! :)\n";
       break;
     }
