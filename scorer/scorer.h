@@ -15,6 +15,7 @@ namespace viaevo {
 // applications (see examples in //examples).
 class Scorer {
 public:
+  virtual ~Scorer() = default;
   // Returns score for specific results.
   virtual long long Score(const std::vector<int> &results) const = 0;
   // Returns maximum possible score for "perfect" results. Should not depend on

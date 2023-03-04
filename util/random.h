@@ -16,6 +16,7 @@ typedef std::mt19937 mt_type;
 class Random {
 public:
   Random();
+  virtual ~Random() = default;
   
   void Seed(mt_type::result_type value);
   virtual mt_type::result_type operator()();

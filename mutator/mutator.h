@@ -17,6 +17,7 @@ namespace viaevo {
 // evolvable code.
 class Mutator {
 public:
+  virtual ~Mutator() = default;
   // Creates new code for target based on parent1 or both parent1 and parent2.
   virtual void Mutate(std::shared_ptr<Program> target,
                       std::shared_ptr<Program> parent1,
