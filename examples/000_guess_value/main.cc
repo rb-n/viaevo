@@ -8,6 +8,7 @@
 // TODO: Remove relative paths.
 #include "../../evolver/evolver_adhoc.h"
 #include "../../mutator/mutator_composite_random.h"
+#include "../../mutator/mutator_point_last_instruction.h"
 #include "../../mutator/mutator_point_random.h"
 #include "../../mutator/mutator_recombine_random.h"
 #include "../../util/random.h"
@@ -20,10 +21,14 @@ int main() {
       std::make_shared<viaevo::MutatorPointRandom>(gen);
   std::shared_ptr<viaevo::MutatorRecombineRandom> mutator_recombine =
       std::make_shared<viaevo::MutatorRecombineRandom>(gen);
+  std::shared_ptr<viaevo::MutatorPointLastInstruction>
+      mutator_last_instruction =
+          std::make_shared<viaevo::MutatorPointLastInstruction>(gen);
 
   viaevo::MutatorCompositeRandom mutator_composite(gen);
   mutator_composite.AppendMutator(mutator_point);
   mutator_composite.AppendMutator(mutator_recombine);
+  mutator_composite.AppendMutator(mutator_last_instruction);
 
   // viaevo::ScorerGuessValue scorer(42);
   // viaevo::ScorerGuessValue scorer(0xFFFFFFFF);

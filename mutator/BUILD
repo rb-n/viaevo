@@ -31,6 +31,29 @@ cc_test(
 )
 
 cc_library(
+  name="mutator_point_last_instruction",
+  srcs=["mutator_point_last_instruction.cc"],
+  hdrs=["mutator_point_last_instruction.h"],
+  deps=[
+    ":mutator_point_random",
+  ],
+  visibility=[
+    "//examples:__subpackages__",
+  ],
+)
+
+cc_test(
+  name="mutator_point_last_instruction_test",
+  srcs=["mutator_point_last_instruction_test.cc"],
+  deps=[
+    ":mutator_point_last_instruction",
+    "//util:random_mock",
+    "@com_google_googletest//:gtest_main",
+  ],
+  data=["//elfs:simple_small"],
+)
+
+cc_library(
   name="mutator_recombine_random",
   srcs=["mutator_recombine_random.cc"],
   hdrs=["mutator_recombine_random.h"],

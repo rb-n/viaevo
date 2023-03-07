@@ -20,6 +20,7 @@ cc_binary(
   deps=[
     ":scorer_guess_value",
     "//evolver:evolver_adhoc",
+    "//mutator:mutator_point_last_instruction",
     "//mutator:mutator_point_random",
     "//mutator:mutator_recombine_random",
     "//mutator:mutator_composite_random",

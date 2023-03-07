@@ -6,7 +6,6 @@
 #include "mutator_point_random.h"
 
 #include <gtest/gtest.h>
-#include <random>
 
 // TODO: Remove relative path.
 #include "../util/random_mock.h"
@@ -28,7 +27,7 @@ TEST(MutatorPointRandomTest, Mutate) {
   std::vector<char> old_parent_code = parent->GetElfCode();
 
   viaevo::MutatorPointRandom mutator(gen);
-  // The third argument is ignored by MutatorPointRandom;
+  // The third argument is ignored by MutatorPointRandom.
   mutator.Mutate(target, parent, parent);
 
   std::vector<char> new_target_code = target->GetElfCode();
@@ -47,7 +46,7 @@ TEST(MutatorPointRandomTest, Mutate) {
   EXPECT_EQ(parent_start, target_start);
 
   EXPECT_NE(old_parent_code[5], new_target_code[5]);
-  // The third bit is flipped, hence ^4.
+  // The third bit should be flipped, hence ^4.
   EXPECT_EQ(old_parent_code[5], new_target_code[5] ^ 4);
 
   std::vector<char> parent_end(old_parent_code.begin() + 6,
