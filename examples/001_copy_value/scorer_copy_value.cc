@@ -81,6 +81,7 @@ long long ScorerCopyValue::MaxScore() const {
 
 void ScorerCopyValue::ResetInputs() {
   current_inputs_[0] = gen_();
+  // Avoid 0 as the scorer does not work correctly in this case.
   while (current_inputs_[0] == 0) {
     current_inputs_[0] = gen_();
   }

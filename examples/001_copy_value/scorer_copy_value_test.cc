@@ -12,7 +12,7 @@
 
 namespace {
 
-TEST(ScorerGuessValueTest, Score) {
+TEST(ScorerCopyValueTest, Score) {
   viaevo::RandomMock gen({42});
   EXPECT_EQ(gen(), 42);
   EXPECT_EQ(gen(), 42);
