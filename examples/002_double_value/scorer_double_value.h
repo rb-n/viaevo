@@ -3,8 +3,8 @@
 // All components of viaevo are licensed under the MIT License.
 // See LICENSE.txt in the root of the repository.
 
-#ifndef VIAEVO_EXAMPLES_002_DOUBLE_VALUE_SCORER_GUESS_VALUE_H_
-#define VIAEVO_EXAMPLES_002_DOUBLE_VALUE_SCORER_GUESS_VALUE_H_
+#ifndef VIAEVO_EXAMPLES_002_DOUBLE_VALUE_SCORER_DOUBLE_VALUE_H_
+#define VIAEVO_EXAMPLES_002_DOUBLE_VALUE_SCORER_DOUBLE_VALUE_H_
 
 #include <vector>
 
@@ -44,4 +44,4 @@ protected:
 
 } // namespace viaevo
 
-#endif // VIAEVO_EXAMPLES_002_DOUBLE_VALUE_SCORER_GUESS_VALUE_H_
+#endif // VIAEVO_EXAMPLES_002_DOUBLE_VALUE_SCORER_DOUBLE_VALUE_H_
