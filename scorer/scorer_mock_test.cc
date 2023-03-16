@@ -15,14 +15,16 @@ TEST(ScorerMockTest, Score) {
   EXPECT_EQ(scorer.current_inputs(), std::vector<int>{1});
 
   std::vector<int> results;
-  EXPECT_EQ(scorer.Score(results), 7);
-  EXPECT_EQ(scorer.Score(results), 17);
-  EXPECT_EQ(scorer.Score(results), 0);
-  EXPECT_EQ(scorer.Score(results), 5);
-  EXPECT_EQ(scorer.Score(results), 7);
-  EXPECT_EQ(scorer.Score(results), 17);
-  EXPECT_EQ(scorer.Score(results), 0);
-  EXPECT_EQ(scorer.Score(results), 5);
+
+  viaevo::Program program;
+  EXPECT_EQ(scorer.Score(program), 7);
+  EXPECT_EQ(scorer.Score(program), 17);
+  EXPECT_EQ(scorer.Score(program), 0);
+  EXPECT_EQ(scorer.Score(program), 5);
+  EXPECT_EQ(scorer.Score(program), 7);
+  EXPECT_EQ(scorer.Score(program), 17);
+  EXPECT_EQ(scorer.Score(program), 0);
+  EXPECT_EQ(scorer.Score(program), 5);
 
   EXPECT_EQ(scorer.MaxScore(), 23);
 

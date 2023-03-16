@@ -17,7 +17,8 @@ ScorerSumTwo::ScorerSumTwo(Random &gen, int number_of_copies_in_current_inputs)
   ResetInputs();
 }
 
-long long ScorerSumTwo::Score(const std::vector<int> &results) const {
+long long ScorerSumTwo::Score(const Program &program) const {
+  const std::vector<int> &results = program.last_results();
   long long score = 0;
 
   // If any of the results exactly matches the expected_value_, increase the
@@ -75,8 +76,10 @@ long long ScorerSumTwo::Score(const std::vector<int> &results) const {
 }
 
 long long ScorerSumTwo::MaxScore() const {
-  std::vector<int> results(11, expected_value_);
-  return Score(results);
+  // Max score should be 112 (20 for changing results[1] and +1 for each
+  // correctly set bit in results[1] and +60 for at least one results element
+  // equalling the correct value).
+  return 112;
 }
 
 void ScorerSumTwo::ResetInputs() {

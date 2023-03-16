@@ -13,7 +13,8 @@ ScorerGuessValue::ScorerGuessValue(int value) : value_(value) {
   assert(value_ != 0 && "Value should not be 0.");
 }
 
-long long ScorerGuessValue::Score(const std::vector<int> &results) const {
+long long ScorerGuessValue::Score(const Program &program) const {
+  const std::vector<int> &results = program.last_results();
   long long score = 0;
 
   // value_ is expected in results[1]. If results[1] is unchanged, at least
@@ -60,8 +61,9 @@ long long ScorerGuessValue::Score(const std::vector<int> &results) const {
 }
 
 long long ScorerGuessValue::MaxScore() const {
-  std::vector<int> results(11, value_);
-  return Score(results);
+  // Max score should be 52 (20 for changing results[1] and +1 for each
+  // correctly set bit in results[1]).
+  return 52;
 }
 
 void ScorerGuessValue::ResetInputs() {}

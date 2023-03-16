@@ -6,6 +6,7 @@ cc_library(
   visibility=[
     "//mutator:__pkg__",
     "//evolver:__pkg__",
+    "//scorer:__pkg__",
   ],
 )
 

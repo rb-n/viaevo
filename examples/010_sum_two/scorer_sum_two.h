@@ -19,8 +19,8 @@ namespace viaevo {
 class ScorerSumTwo : public Scorer {
 public:
   explicit ScorerSumTwo(Random &gen, int number_of_copies_in_current_inputs);
-  // Returns score for specific results.
-  virtual long long Score(const std::vector<int> &results) const override;
+  // Returns score for a specific Program.
+  virtual long long Score(const Program &program) const override;
   // Returns maximum possible score for "perfect" results. Should be the same
   // for different values of current_inputs_[0].
   virtual long long MaxScore() const override;

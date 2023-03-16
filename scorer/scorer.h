@@ -8,6 +8,7 @@
 
 #include <vector>
 
+#include "../program/program.h"
 namespace viaevo {
 
 // Scorer is an abstract base class defining the interface to provide inputs and
@@ -16,8 +17,8 @@ namespace viaevo {
 class Scorer {
 public:
   virtual ~Scorer() = default;
-  // Returns score for specific results.
-  virtual long long Score(const std::vector<int> &results) const = 0;
+  // Returns score for a specific Program.
+  virtual long long Score(const Program &program) const = 0;
   // Returns maximum possible score for "perfect" results. Should not depend on
   // current_inputs_.
   virtual long long MaxScore() const = 0;

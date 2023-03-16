@@ -17,11 +17,14 @@ namespace viaevo {
 // Program reads ELFs and manages their modifications, execution and reading of
 // results.
 //
-// The class is not intended for subclassing and will provide a separate factory
-// method for each ELF in //elfs.
-class Program final {
+// The class is not intended for subclassing (other than mock classes for unit
+// testing) and will provide a separate factory method for each ELF in //elfs.
+class Program {
 public:
-  explicit Program(const char *filename);
+  // TODO: Allowing the default constructor to make it easier to subclass for
+  // mocking in unit testing. May want to find a different approach.
+  Program() {}
+  Program(const char *filename);
   Program(const char *filename, Elf64_Addr main_offset_in_elf,
           Elf64_Addr main_offset_in_text, uint64_t main_st_size,
           Elf64_Addr inputs_offset_in_elf, uint64_t inputs_st_size,
@@ -98,6 +101,7 @@ private:
   // between executions.
   int elf_mem_fd_ = -1;
 
+protected:
   // Last syscall, rip (instruction pointer) offset (vs. main), status, and
   // signal observed in the elf process.
   static constexpr unsigned long long kInvalidSyscall = 9999;

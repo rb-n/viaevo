@@ -9,6 +9,13 @@
 
 namespace {
 
+class ProgramMock : public viaevo::Program {
+public:
+  void set_last_results(const std::vector<int> &results) {
+    last_results_ = results;
+  }
+};
+
 TEST(ScorerGuessValueTest, FailOnValue0) {
   EXPECT_DEATH(viaevo::ScorerGuessValue(0), "Value should not be 0.");
 }
@@ -21,55 +28,66 @@ TEST(ScorerGuessValueTest, Score) {
   // Results the same as initialized in //elfs/simple_small.c
   std::vector<int> results{30, 0, 0, 0, 0, 0, 3, 3, 3, 3, 3};
 
-  EXPECT_EQ(scorer1.Score(results), 0);
-  EXPECT_EQ(scorer42.Score(results), 0);
-  EXPECT_EQ(scorer1024.Score(results), 0);
+  ProgramMock program;
+
+  program.set_last_results(results);
+  EXPECT_EQ(scorer1.Score(program), 0);
+  EXPECT_EQ(scorer42.Score(program), 0);
+  EXPECT_EQ(scorer1024.Score(program), 0);
 
   // Changing elements other than results[1] should increments score by 1.
   results[5] = 5;
-  EXPECT_EQ(scorer1.Score(results), 1);
-  EXPECT_EQ(scorer42.Score(results), 1);
-  EXPECT_EQ(scorer1024.Score(results), 1);
+  program.set_last_results(results);
+  EXPECT_EQ(scorer1.Score(program), 1);
+  EXPECT_EQ(scorer42.Score(program), 1);
+  EXPECT_EQ(scorer1024.Score(program), 1);
 
   results[2] = 1;
-  EXPECT_EQ(scorer1.Score(results), 2);
-  EXPECT_EQ(scorer42.Score(results), 2);
-  EXPECT_EQ(scorer1024.Score(results), 2);
+  program.set_last_results(results);
+  EXPECT_EQ(scorer1.Score(program), 2);
+  EXPECT_EQ(scorer42.Score(program), 2);
+  EXPECT_EQ(scorer1024.Score(program), 2);
 
   results[7] = 0;
-  EXPECT_EQ(scorer1.Score(results), 3);
-  EXPECT_EQ(scorer42.Score(results), 3);
-  EXPECT_EQ(scorer1024.Score(results), 3);
+  program.set_last_results(results);
+  EXPECT_EQ(scorer1.Score(program), 3);
+  EXPECT_EQ(scorer42.Score(program), 3);
+  EXPECT_EQ(scorer1024.Score(program), 3);
 
   // Changing results[1] disregards other elements and scores only based on
   // results[1].
   results[1] = 1;
-  EXPECT_EQ(scorer1.Score(results), 52);
-  EXPECT_EQ(scorer42.Score(results), 48);
-  EXPECT_EQ(scorer1024.Score(results), 50);
+  program.set_last_results(results);
+  EXPECT_EQ(scorer1.Score(program), 52);
+  EXPECT_EQ(scorer42.Score(program), 48);
+  EXPECT_EQ(scorer1024.Score(program), 50);
 
   results[1] = 1024;
-  EXPECT_EQ(scorer1.Score(results), 50);
-  EXPECT_EQ(scorer42.Score(results), 48);
-  EXPECT_EQ(scorer1024.Score(results), 52);
+  program.set_last_results(results);
+  EXPECT_EQ(scorer1.Score(program), 50);
+  EXPECT_EQ(scorer42.Score(program), 48);
+  EXPECT_EQ(scorer1024.Score(program), 52);
 
   results[1] = 42;
-  EXPECT_EQ(scorer1.Score(results), 48);
-  EXPECT_EQ(scorer42.Score(results), 52);
-  EXPECT_EQ(scorer1024.Score(results), 48);
+  program.set_last_results(results);
+  EXPECT_EQ(scorer1.Score(program), 48);
+  EXPECT_EQ(scorer42.Score(program), 52);
+  EXPECT_EQ(scorer1024.Score(program), 48);
 
   // Walking back changes in the other elements does not impact the score when
   // results[1] changed.
   results[2] = 0;
-  EXPECT_EQ(scorer1.Score(results), 48);
-  EXPECT_EQ(scorer42.Score(results), 52);
-  EXPECT_EQ(scorer1024.Score(results), 48);
+  program.set_last_results(results);
+  EXPECT_EQ(scorer1.Score(program), 48);
+  EXPECT_EQ(scorer42.Score(program), 52);
+  EXPECT_EQ(scorer1024.Score(program), 48);
 
   results[5] = 0;
   results[7] = 3;
-  EXPECT_EQ(scorer1.Score(results), 48);
-  EXPECT_EQ(scorer42.Score(results), 52);
-  EXPECT_EQ(scorer1024.Score(results), 48);
+  program.set_last_results(results);
+  EXPECT_EQ(scorer1.Score(program), 48);
+  EXPECT_EQ(scorer42.Score(program), 52);
+  EXPECT_EQ(scorer1024.Score(program), 48);
 }
 
 TEST(ScorerGuessValueTest, MaxScore) {

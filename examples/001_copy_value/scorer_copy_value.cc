@@ -17,7 +17,8 @@ ScorerCopyValue::ScorerCopyValue(Random &gen,
   ResetInputs();
 }
 
-long long ScorerCopyValue::Score(const std::vector<int> &results) const {
+long long ScorerCopyValue::Score(const Program &program) const {
+  const std::vector<int> &results = program.last_results();
   long long score = 0;
 
   // If any of the results exactly matches current_inputs_[0], increase the
@@ -75,8 +76,10 @@ long long ScorerCopyValue::Score(const std::vector<int> &results) const {
 }
 
 long long ScorerCopyValue::MaxScore() const {
-  std::vector<int> results(11, current_inputs_[0]);
-  return Score(results);
+  // Max score should be 112 (20 for changing results[1] and +1 for each
+  // correctly set bit in results[1] and +60 for at least one results element
+  // equalling the correct value).
+  return 112;
 }
 
 void ScorerCopyValue::ResetInputs() {

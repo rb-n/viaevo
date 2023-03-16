@@ -12,6 +12,13 @@
 
 namespace {
 
+class ProgramMock : public viaevo::Program {
+public:
+  void set_last_results(const std::vector<int> &results) {
+    last_results_ = results;
+  }
+};
+
 TEST(ScorerCopyValueTest, Score) {
   viaevo::RandomMock gen({42});
   EXPECT_EQ(gen(), 42);
@@ -26,45 +33,58 @@ TEST(ScorerCopyValueTest, Score) {
   // Results the same as initialized in //elfs/simple_small.c
   std::vector<int> results{20, 0, 0, 0, 0, 0, 3, 3, 3, 3, 3};
 
-  EXPECT_EQ(scorer.Score(results), 0);
+  ProgramMock program;
+
+  program.set_last_results(results);
+  EXPECT_EQ(scorer.Score(program), 0);
 
   // Changing elements other than results[1] should increments score by 1.
   results[5] = 5;
-  EXPECT_EQ(scorer.Score(results), 1);
+  program.set_last_results(results);
+  EXPECT_EQ(scorer.Score(program), 1);
 
   results[2] = 1;
-  EXPECT_EQ(scorer.Score(results), 2);
+  program.set_last_results(results);
+  EXPECT_EQ(scorer.Score(program), 2);
 
   results[7] = 0;
-  EXPECT_EQ(scorer.Score(results), 3);
+  program.set_last_results(results);
+  EXPECT_EQ(scorer.Score(program), 3);
 
   // Setting one of the other results to the correct value should add
   // additonal 60.
   results[4] = 42;
-  EXPECT_EQ(scorer.Score(results), 64);
+  program.set_last_results(results);
+  EXPECT_EQ(scorer.Score(program), 64);
 
   results[4] = 0;
-  EXPECT_EQ(scorer.Score(results), 3);
+  program.set_last_results(results);
+  EXPECT_EQ(scorer.Score(program), 3);
 
   // Changing results[1] disregards other elements and scores only based on
   // results[1].
   results[1] = 1;
-  EXPECT_EQ(scorer.Score(results), 48);
+  program.set_last_results(results);
+  EXPECT_EQ(scorer.Score(program), 48);
 
   results[1] = 1024;
-  EXPECT_EQ(scorer.Score(results), 48);
+  program.set_last_results(results);
+  EXPECT_EQ(scorer.Score(program), 48);
 
   results[1] = 42;
-  EXPECT_EQ(scorer.Score(results), 112);
+  program.set_last_results(results);
+  EXPECT_EQ(scorer.Score(program), 112);
 
   // Walking back changes in the other elements does not impact the score when
   // results[1] changed.
   results[2] = 0;
-  EXPECT_EQ(scorer.Score(results), 112);
+  program.set_last_results(results);
+  EXPECT_EQ(scorer.Score(program), 112);
 
   results[5] = 0;
   results[7] = 3;
-  EXPECT_EQ(scorer.Score(results), 112);
+  program.set_last_results(results);
+  EXPECT_EQ(scorer.Score(program), 112);
 }
 
 TEST(ScorerCopyValueTest, MaxScore) {

@@ -20,8 +20,8 @@ namespace viaevo {
 class ScorerGuessValue : public Scorer {
 public:
   explicit ScorerGuessValue(int value);
-  // Returns score for specific results.
-  virtual long long Score(const std::vector<int> &results) const override;
+  // Returns score for a specific Program.
+  virtual long long Score(const Program &program) const override;
   // Returns maximum possible score for "perfect" results. Should not depend on
   // current_inputs_.
   virtual long long MaxScore() const override;

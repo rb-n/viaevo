@@ -1,6 +1,7 @@
 cc_library(
   name="scorer",
   hdrs=["scorer.h"],
+  deps=["//program:program"],
   visibility=[
     "//evolver:__pkg__",
     "//examples:__subpackages__",

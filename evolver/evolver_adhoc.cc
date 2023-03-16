@@ -88,7 +88,7 @@ void EvolverAdHoc::Run() {
         programs_[i]->SetElfInputs(scorer_.current_inputs());
         programs_[i]->Execute();
         programs_[i]->IncrementCurrentScoreBy(
-            scorer_.Score(programs_[i]->last_results()));
+            scorer_.Score(*programs_[i]));
       }
       if (best_generation_score < programs_[i]->current_score()) {
         best_generation_score = programs_[i]->current_score();

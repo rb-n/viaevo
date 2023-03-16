@@ -17,7 +17,7 @@ public:
   ScorerMock(std::vector<long long> scores_, long long max_score,
              std::vector<int> current_inputs);
   // Returns score for specific results.
-  virtual long long Score(const std::vector<int> &results) const override;
+  virtual long long Score(const Program &program) const override;
   // Returns predefined max_score_.
   virtual long long MaxScore() const override;
   // Does nothing.

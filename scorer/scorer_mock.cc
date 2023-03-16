@@ -18,7 +18,7 @@ ScorerMock::ScorerMock(std::vector<long long> scores, long long max_score,
          "max_score_ should not be smaller than any element in scores_");
 }
 
-long long ScorerMock::Score(const std::vector<int> &results) const {
+long long ScorerMock::Score(const Program &program) const {
   current_scores_index_ = (current_scores_index_ + 1) % scores_.size();
   return scores_[current_scores_index_];
 };

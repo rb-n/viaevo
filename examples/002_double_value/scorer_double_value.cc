@@ -17,7 +17,8 @@ ScorerDoubleValue::ScorerDoubleValue(Random &gen,
   ResetInputs();
 }
 
-long long ScorerDoubleValue::Score(const std::vector<int> &results) const {
+long long ScorerDoubleValue::Score(const Program &program) const {
+  const std::vector<int> &results = program.last_results();
   long long score = 0;
 
   // If any of the results exactly matches 2 * current_inputs_[0], increase the
@@ -75,8 +76,10 @@ long long ScorerDoubleValue::Score(const std::vector<int> &results) const {
 }
 
 long long ScorerDoubleValue::MaxScore() const {
-  std::vector<int> results(11, expected_value_);
-  return Score(results);
+  // Max score should be 112 (20 for changing results[1] and +1 for each
+  // correctly set bit in results[1] and +60 for at least one results element
+  // equalling the correct value).
+  return 112;
 }
 
 void ScorerDoubleValue::ResetInputs() {
