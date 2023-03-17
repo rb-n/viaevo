@@ -10,6 +10,7 @@
 #include <fcntl.h>
 
 #include <memory>
+#include <unordered_map>
 #include <vector>
 
 namespace viaevo {
@@ -20,15 +21,15 @@ namespace viaevo {
 // The class is not intended for subclassing (other than mock classes for unit
 // testing) and will provide a separate factory method for each ELF in //elfs.
 class Program {
+protected:
+  struct SymbolData;
+
 public:
   // TODO: Allowing the default constructor to make it easier to subclass for
   // mocking in unit testing. May want to find a different approach.
   Program() {}
   Program(const char *filename);
-  Program(const char *filename, Elf64_Addr main_offset_in_elf,
-          Elf64_Addr main_offset_in_text, uint64_t main_st_size,
-          Elf64_Addr inputs_offset_in_elf, uint64_t inputs_st_size,
-          Elf64_Addr results_offset_in_data, uint64_t results_st_size,
+  Program(const char *filename, SymbolData symbol_data,
           int expected_ptrace_stops);
   ~Program();
 
@@ -124,27 +125,28 @@ protected:
   long long current_score_ = 0;
 
   // ELF symbol table values and sizes for main and results.
-  Elf64_Addr main_offset_in_elf_ = -1;  // offset from elf beginning
-  Elf64_Addr main_offset_in_text_ = -1; // offset from .text beginning
-  uint64_t main_st_size_ = -1;
-  Elf64_Addr inputs_offset_in_elf_ = -1; // offset from .data beginning
-  uint64_t inputs_st_size_ = -1;
-  Elf64_Addr results_offset_in_data_ = -1;
-  uint64_t results_st_size_ = -1;
+  struct SymbolData {
+    Elf64_Addr main_offset_in_elf_ = -1;  // offset from elf beginning
+    Elf64_Addr main_offset_in_text_ = -1; // offset from .text beginning
+    uint64_t main_st_size_ = -1;
+    // TODO: Rename to inputs_offset_in_data_ ?
+    Elf64_Addr inputs_offset_in_elf_ = -1; // offset from .data beginning
+    uint64_t inputs_st_size_ = -1;
+    Elf64_Addr results_offset_in_data_ = -1;
+    uint64_t results_st_size_ = -1;
+  };
+
+  SymbolData symbol_data_;
+
+  // Map elf name to its symbol data to "memoize" these and avoid computing
+  // these for each instance of the same elf. Symbol data fields are initialized
+  // to -1 and set the correct value during the first pass of the factory method
+  // for each ELF. Then the values from the map are used for subsequent
+  // instances of the elf.
+  static std::unordered_map<std::string, SymbolData> symbol_data_map_;
 
   // Number of ptrace stops (e.g. syscalls) prior to executing main().
   int expected_ptrace_stops_ = -1;
-
-  // Default values for respective member variables for individual ELFs in
-  // //elfs. These should be initialized to -1 and set the correct value during
-  // the first pass of the factory method for each ELF.
-  static Elf64_Addr main_offset_in_elf_simple_small_;
-  static Elf64_Addr main_offset_in_text_simple_small_;
-  static uint64_t main_st_size_simple_small_;
-  static Elf64_Addr inputs_offset_in_elf_simple_small_;
-  static uint64_t inputs_st_size_simple_small_;
-  static Elf64_Addr results_offset_in_data_simple_small_;
-  static uint64_t results_st_size_simple_small_;
 
   static int expected_ptrace_stops_simple_small_;
 };

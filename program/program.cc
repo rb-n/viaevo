@@ -33,30 +33,15 @@ void myfail(const char *s) {
 
 } // namespace
 
-Elf64_Addr Program::main_offset_in_elf_simple_small_ = -1;
-Elf64_Addr Program::main_offset_in_text_simple_small_ = -1;
-uint64_t Program::main_st_size_simple_small_ = -1;
-Elf64_Addr Program::inputs_offset_in_elf_simple_small_ = -1;
-uint64_t Program::inputs_st_size_simple_small_ = -1;
-Elf64_Addr Program::results_offset_in_data_simple_small_ = -1;
-uint64_t Program::results_st_size_simple_small_ = -1;
+std::unordered_map<std::string, Program::SymbolData> Program::symbol_data_map_;
 
 int Program::expected_ptrace_stops_simple_small_ = -1;
 
 Program::Program(const char *filename) { SetupElfInMemory(filename); }
 
-Program::Program(const char *filename, Elf64_Addr main_offset_in_elf,
-                 Elf64_Addr main_offset_in_text, uint64_t main_st_size,
-                 Elf64_Addr inputs_offset_in_elf, uint64_t inputs_st_size,
-                 Elf64_Addr results_offset_in_data, uint64_t results_st_size,
+Program::Program(const char *filename, SymbolData symbol_data,
                  int expected_ptrace_stops)
-    : main_offset_in_elf_(main_offset_in_elf),
-      main_offset_in_text_(main_offset_in_text), main_st_size_(main_st_size),
-      inputs_offset_in_elf_(inputs_offset_in_elf),
-      inputs_st_size_(inputs_st_size),
-      results_offset_in_data_(results_offset_in_data),
-      results_st_size_(results_st_size),
-      expected_ptrace_stops_(expected_ptrace_stops) {
+    : symbol_data_(symbol_data), expected_ptrace_stops_(expected_ptrace_stops) {
   SetupElfInMemory(filename);
 }
 
@@ -66,34 +51,27 @@ Program::~Program() {
 }
 
 bool Program::IsInitialized() const {
-  return (elf_mem_fd_ != -1 && main_offset_in_elf_ != (Elf64_Addr)-1 &&
-          main_st_size_ != (uint64_t)-1 &&
-          results_offset_in_data_ != (Elf64_Addr)-1 &&
-          results_st_size_ != (uint64_t)-1 && expected_ptrace_stops_ != -1);
+  return (elf_mem_fd_ != -1 &&
+          symbol_data_.main_offset_in_elf_ != (Elf64_Addr)-1 &&
+          symbol_data_.main_st_size_ != (uint64_t)-1 &&
+          symbol_data_.results_offset_in_data_ != (Elf64_Addr)-1 &&
+          symbol_data_.results_st_size_ != (uint64_t)-1 &&
+          expected_ptrace_stops_ != -1);
 }
 
 std::shared_ptr<Program> Program::CreateSimpleSmall() {
-  std::shared_ptr<Program> p = std::make_shared<Program>("elfs/simple_small");
-  if (expected_ptrace_stops_simple_small_ == -1) {
-    Program p("elfs/simple_small");
+  std::string filename = "elfs/simple_small";
+  if (symbol_data_map_.count(filename) == 0) {
+    Program p(filename.c_str());
     p.InitializeElfSymbolData();
-    main_offset_in_elf_simple_small_ = p.main_offset_in_elf_;
-    main_offset_in_text_simple_small_ = p.main_offset_in_text_;
-    main_st_size_simple_small_ = p.main_st_size_;
-    inputs_offset_in_elf_simple_small_ = p.inputs_offset_in_elf_;
-    inputs_st_size_simple_small_ = p.inputs_st_size_;
-    results_offset_in_data_simple_small_ = p.results_offset_in_data_;
-    results_st_size_simple_small_ = p.results_st_size_;
+    symbol_data_map_[filename] = p.symbol_data_;
     // The expected number of ptrace stops prior to executing is the full number
     // minus one (minus the final exit syscall).
     expected_ptrace_stops_simple_small_ = p.Execute();
   }
-  return std::make_shared<Program>(
-      "elfs/simple_small", main_offset_in_elf_simple_small_,
-      main_offset_in_text_simple_small_, main_st_size_simple_small_,
-      inputs_offset_in_elf_simple_small_, inputs_st_size_simple_small_,
-      results_offset_in_data_simple_small_, results_st_size_simple_small_,
-      expected_ptrace_stops_simple_small_);
+  return std::make_shared<Program>("elfs/simple_small",
+                                   symbol_data_map_[filename],
+                                   expected_ptrace_stops_simple_small_);
 }
 
 void Program::SetupElfInMemory(const char *filename) {
@@ -244,12 +222,13 @@ void Program::InitializeElfSymbolData() {
     myfail("symbol main not found");
   int main_index = name_to_syms_index["main"];
 
-  main_offset_in_text_ = syms[main_index].st_value - shdrs[text_index].sh_addr;
+  symbol_data_.main_offset_in_text_ =
+      syms[main_index].st_value - shdrs[text_index].sh_addr;
   // NOTE: Risk of underflow for an unsigned variable? (Same below for inputs.)
-  main_offset_in_elf_ =
+  symbol_data_.main_offset_in_elf_ =
       syms[main_index].st_value -
       (shdrs[text_index].sh_addr - shdrs[text_index].sh_offset);
-  main_st_size_ = syms[main_index].st_size;
+  symbol_data_.main_st_size_ = syms[main_index].st_size;
 
   if (name_to_shdrs_index.count(".data") < 1)
     myfail("section header .data not found");
@@ -259,10 +238,10 @@ void Program::InitializeElfSymbolData() {
     myfail("symbol inputs not found");
   int inputs_index = name_to_syms_index["inputs"];
 
-  inputs_offset_in_elf_ =
+  symbol_data_.inputs_offset_in_elf_ =
       syms[inputs_index].st_value -
       (shdrs[data_index].sh_addr - shdrs[data_index].sh_offset);
-  inputs_st_size_ = syms[inputs_index].st_size;
+  symbol_data_.inputs_st_size_ = syms[inputs_index].st_size;
 
   if (name_to_syms_index.count("data_start") < 1)
     myfail("symbol data_start not found");
@@ -271,9 +250,9 @@ void Program::InitializeElfSymbolData() {
   if (name_to_syms_index.count("results") < 1)
     myfail("symbol results not found");
   int results_index = name_to_syms_index["results"];
-  results_offset_in_data_ =
+  symbol_data_.results_offset_in_data_ =
       syms[results_index].st_value - syms[data_start_index].st_value;
-  results_st_size_ = syms[results_index].st_size;
+  symbol_data_.results_st_size_ = syms[results_index].st_size;
 }
 
 int Program::Execute(int max_ptrace_stops) {
@@ -469,7 +448,7 @@ void Program::ReadLastResultsAndLastRipOffsetFromElfProcess(
   if (start_data > end_data)
     myfail("start_data > end_data");
 
-  last_rip_offset_ = rip - start_code - main_offset_in_text_;
+  last_rip_offset_ = rip - start_code - symbol_data_.main_offset_in_text_;
 
   // printf("pid: %d, comm: %s, state: %c\n", proc_pid, proc_comm.c_str(),
   //        proc_state);
@@ -483,20 +462,23 @@ void Program::ReadLastResultsAndLastRipOffsetFromElfProcess(
   struct iovec remote[1];
   ssize_t nread;
 
-  if (results_st_size_ % sizeof(decltype(last_results_)::value_type) != 0)
+  if (symbol_data_.results_st_size_ %
+          sizeof(decltype(last_results_)::value_type) !=
+      0)
     myfail("results_st_size_ mismatch");
 
-  last_results_.resize(results_st_size_ /
+  last_results_.resize(symbol_data_.results_st_size_ /
                        sizeof(decltype(last_results_)::value_type));
   // printf("last_results_ size: %ld\n", last_results_.size());
 
   local[0].iov_base = last_results_.data();
-  local[0].iov_len = results_st_size_;
-  remote[0].iov_base = (void *)(start_data + results_offset_in_data_);
-  remote[0].iov_len = results_st_size_;
+  local[0].iov_len = symbol_data_.results_st_size_;
+  remote[0].iov_base =
+      (void *)(start_data + symbol_data_.results_offset_in_data_);
+  remote[0].iov_len = symbol_data_.results_st_size_;
 
   nread = process_vm_readv(elf_pid, local, 1, remote, 1, 0);
-  if (nread != (ssize_t)results_st_size_)
+  if (nread != (ssize_t)symbol_data_.results_st_size_)
     myfail("process_vm_readv failed");
 }
 
@@ -510,30 +492,31 @@ void Program::ClearLastState() {
 }
 
 std::vector<char> Program::GetElfCode() const {
-  if (main_offset_in_elf_ == (Elf64_Addr)-1)
+  if (symbol_data_.main_offset_in_elf_ == (Elf64_Addr)-1)
     myfail("location to get main unknown");
 
-  off_t offset = lseek(elf_mem_fd_, main_offset_in_elf_, SEEK_SET);
-  if (offset != (off_t)main_offset_in_elf_)
+  off_t offset = lseek(elf_mem_fd_, symbol_data_.main_offset_in_elf_, SEEK_SET);
+  if (offset != (off_t)symbol_data_.main_offset_in_elf_)
     myfail("get elf code lseek failed");
 
-  std::vector<char> elf_code(main_st_size_);
-  ssize_t nread = read(elf_mem_fd_, elf_code.data(), main_st_size_);
-  if (nread != (ssize_t)main_st_size_)
+  std::vector<char> elf_code(symbol_data_.main_st_size_);
+  ssize_t nread =
+      read(elf_mem_fd_, elf_code.data(), symbol_data_.main_st_size_);
+  if (nread != (ssize_t)symbol_data_.main_st_size_)
     myfail("getting elf code failed");
 
   return elf_code;
 }
 
 void Program::SetElfCode(const std::vector<char> &elf_code) {
-  if (elf_code.size() != main_st_size_)
+  if (elf_code.size() != symbol_data_.main_st_size_)
     myfail("elf code to set has incorrect size");
 
-  if (main_offset_in_elf_ == (Elf64_Addr)-1)
+  if (symbol_data_.main_offset_in_elf_ == (Elf64_Addr)-1)
     myfail("location to set main unknown");
 
-  off_t offset = lseek(elf_mem_fd_, main_offset_in_elf_, SEEK_SET);
-  if (offset != (off_t)main_offset_in_elf_)
+  off_t offset = lseek(elf_mem_fd_, symbol_data_.main_offset_in_elf_, SEEK_SET);
+  if (offset != (off_t)symbol_data_.main_offset_in_elf_)
     myfail("set elf code lseek failed");
 
   ssize_t nwritten = write(elf_mem_fd_, elf_code.data(), elf_code.size());
@@ -542,42 +525,47 @@ void Program::SetElfCode(const std::vector<char> &elf_code) {
 }
 
 std::vector<int> Program::GetElfInputs() const {
-  if (inputs_offset_in_elf_ == (Elf64_Addr)-1)
+  if (symbol_data_.inputs_offset_in_elf_ == (Elf64_Addr)-1)
     myfail("location to get inputs unknown");
 
   std::vector<int> elf_inputs;
 
-  if (inputs_st_size_ % sizeof(decltype(elf_inputs)::value_type) != 0)
+  if (symbol_data_.inputs_st_size_ % sizeof(decltype(elf_inputs)::value_type) !=
+      0)
     myfail("inputs_st_size_ mismatch");
 
-  elf_inputs.resize(inputs_st_size_ / sizeof(decltype(elf_inputs)::value_type));
+  elf_inputs.resize(symbol_data_.inputs_st_size_ /
+                    sizeof(decltype(elf_inputs)::value_type));
 
-  off_t offset = lseek(elf_mem_fd_, inputs_offset_in_elf_, SEEK_SET);
-  if (offset != (off_t)inputs_offset_in_elf_)
+  off_t offset =
+      lseek(elf_mem_fd_, symbol_data_.inputs_offset_in_elf_, SEEK_SET);
+  if (offset != (off_t)symbol_data_.inputs_offset_in_elf_)
     myfail("get elf inputs lseek failed");
 
-  ssize_t nread = read(elf_mem_fd_, elf_inputs.data(), inputs_st_size_);
-  if (nread != (ssize_t)inputs_st_size_)
+  ssize_t nread =
+      read(elf_mem_fd_, elf_inputs.data(), symbol_data_.inputs_st_size_);
+  if (nread != (ssize_t)symbol_data_.inputs_st_size_)
     myfail("getting elf inputs failed");
 
   return elf_inputs;
 }
 
 void Program::SetElfInputs(const std::vector<int> &elf_inputs) {
-  if (inputs_offset_in_elf_ == (Elf64_Addr)-1)
+  if (symbol_data_.inputs_offset_in_elf_ == (Elf64_Addr)-1)
     myfail("location to set inputs unknown");
 
   auto element_size =
       sizeof(std::remove_reference_t<decltype(elf_inputs)>::value_type);
 
-  if (inputs_st_size_ % element_size != 0)
+  if (symbol_data_.inputs_st_size_ % element_size != 0)
     myfail("inputs_st_size_ mismatch");
 
-  if (elf_inputs.size() * element_size > inputs_st_size_)
+  if (elf_inputs.size() * element_size > symbol_data_.inputs_st_size_)
     myfail("elf inputs to set are too large");
 
-  off_t offset = lseek(elf_mem_fd_, inputs_offset_in_elf_, SEEK_SET);
-  if (offset != (off_t)inputs_offset_in_elf_)
+  off_t offset =
+      lseek(elf_mem_fd_, symbol_data_.inputs_offset_in_elf_, SEEK_SET);
+  if (offset != (off_t)symbol_data_.inputs_offset_in_elf_)
     myfail("set elf inputs lseek failed");
 
   ssize_t nwritten =
