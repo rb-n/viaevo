@@ -129,8 +129,7 @@ protected:
     Elf64_Addr main_offset_in_elf_ = -1;  // offset from elf beginning
     Elf64_Addr main_offset_in_text_ = -1; // offset from .text beginning
     uint64_t main_st_size_ = -1;
-    // TODO: Rename to inputs_offset_in_data_ ?
-    Elf64_Addr inputs_offset_in_elf_ = -1; // offset from .data beginning
+    Elf64_Addr inputs_offset_in_elf_ = -1; // offset from elf beginning
     uint64_t inputs_st_size_ = -1;
     Elf64_Addr results_offset_in_data_ = -1;
     uint64_t results_st_size_ = -1;
