@@ -19,13 +19,13 @@ namespace {
 
 TEST(MutatorRecombineRandomTest, Mutate) {
   std::shared_ptr<viaevo::Program> target =
-      viaevo::Program::CreateSimpleSmall();
+      viaevo::Program::Create("elfs/simple_small");
 
   std::shared_ptr<viaevo::Program> parent1 =
-      viaevo::Program::CreateSimpleSmall();
+      viaevo::Program::Create("elfs/simple_small");
 
   std::shared_ptr<viaevo::Program> parent2 =
-      viaevo::Program::CreateSimpleSmall();
+      viaevo::Program::Create("elfs/simple_small");
 
   // The first mutator (point) will be selected first and used to mutate the
   // code, then the second mutator (recombine) will be selected and used to

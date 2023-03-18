@@ -19,7 +19,8 @@ namespace viaevo {
 // results.
 //
 // The class is not intended for subclassing (other than mock classes for unit
-// testing) and will provide a separate factory method for each ELF in //elfs.
+// testing). Instances should be created via the factory method Create for ELFs
+// in //elfs.
 class Program {
 protected:
   struct SymbolData;
@@ -35,8 +36,8 @@ public:
 
   bool IsInitialized() const;
 
-  // Factory methods creating a Program instance based on one of the //elfs.
-  static std::shared_ptr<Program> CreateSimpleSmall(); // //elfs:simple_small
+  // Factory method to create Program instances based on one of the //elfs.
+  static std::shared_ptr<Program> Create(const std::string filename);
 
   // Execute the program and populate last_results_. At most max_ptrace_stops
   // will be allowed for the elf process before the elf process is terminated.

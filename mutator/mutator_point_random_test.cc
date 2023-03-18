@@ -14,10 +14,10 @@ namespace {
 
 TEST(MutatorPointRandomTest, Mutate) {
   std::shared_ptr<viaevo::Program> target =
-      viaevo::Program::CreateSimpleSmall();
+      viaevo::Program::Create("elfs/simple_small");
 
   std::shared_ptr<viaevo::Program> parent =
-      viaevo::Program::CreateSimpleSmall();
+      viaevo::Program::Create("elfs/simple_small");
 
   viaevo::RandomMock gen({42});
   EXPECT_EQ(gen(), 42);

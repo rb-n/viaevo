@@ -59,8 +59,7 @@ bool Program::IsInitialized() const {
           expected_ptrace_stops_ != -1);
 }
 
-std::shared_ptr<Program> Program::CreateSimpleSmall() {
-  std::string filename = "elfs/simple_small";
+std::shared_ptr<Program> Program::Create(const std::string filename) {
   if (symbol_data_map_.count(filename) == 0) {
     Program p(filename.c_str());
     p.InitializeElfSymbolData();

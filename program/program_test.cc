@@ -11,7 +11,7 @@ namespace {
 
 TEST(ProgramTest, CreateExecuteSimpleSmall) {
   std::shared_ptr<viaevo::Program> program =
-      viaevo::Program::CreateSimpleSmall();
+      viaevo::Program::Create("elfs/simple_small");
 
   std::vector<int> default_results{10, 0, 0, 0, 0, 0, 3, 3, 3, 3, 3};
   std::vector<int> changed_results = default_results;
@@ -89,7 +89,7 @@ TEST(ProgramTest, CreateExecuteSimpleSmall) {
 
 TEST(ProgramTest, GetSetElfCodeSimpleSmall) {
   std::shared_ptr<viaevo::Program> program =
-      viaevo::Program::CreateSimpleSmall();
+      viaevo::Program::Create("elfs/simple_small");
 
   std::vector<char> elf_code = program->GetElfCode();
   EXPECT_FALSE(elf_code.empty());
@@ -118,7 +118,7 @@ TEST(ProgramTest, GetSetElfCodeSimpleSmall) {
 
 TEST(ProgramTest, GetSetElfInputsSimpleSmall) {
   std::shared_ptr<viaevo::Program> program =
-      viaevo::Program::CreateSimpleSmall();
+      viaevo::Program::Create("elfs/simple_small");
 
   std::vector<int> elf_inputs = program->GetElfInputs();
   EXPECT_EQ(elf_inputs.size(), 101);
@@ -150,7 +150,7 @@ TEST(ProgramTest, GetSetElfInputsSimpleSmall) {
 
 TEST(ProgramTest, ResetIncrementCurrentScore) {
   std::shared_ptr<viaevo::Program> program =
-      viaevo::Program::CreateSimpleSmall();
+      viaevo::Program::Create("elfs/simple_small");
 
   EXPECT_EQ(program->current_score(), 0);
 
@@ -165,7 +165,7 @@ TEST(ProgramTest, ResetIncrementCurrentScore) {
 
 TEST(ProgramTest, LastRipOffset) {
   std::shared_ptr<viaevo::Program> program =
-      viaevo::Program::CreateSimpleSmall();
+      viaevo::Program::Create("elfs/simple_small");
 
   std::vector<int> expected_results{20, 0, 0, 0, 0, 0, 3, 3, 3, 3, 3};
 

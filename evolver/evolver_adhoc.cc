@@ -29,7 +29,7 @@ EvolverAdHoc::EvolverAdHoc(int mu, int phi, int lambda, Scorer &scorer,
       gen_(gen), evaluations_per_program_(evaluations_per_program),
       max_generations_(max_generations) {
   for (int i = 0; i < mu_ + lambda_; ++i) {
-    programs_.push_back(Program::CreateSimpleSmall());
+    programs_.push_back(Program::Create("elfs/simple_small"));
   }
 }
 
@@ -87,8 +87,7 @@ void EvolverAdHoc::Run() {
       for (int j = 0; j < evaluations_per_program_; ++j) {
         programs_[i]->SetElfInputs(scorer_.current_inputs());
         programs_[i]->Execute();
-        programs_[i]->IncrementCurrentScoreBy(
-            scorer_.Score(*programs_[i]));
+        programs_[i]->IncrementCurrentScoreBy(scorer_.Score(*programs_[i]));
       }
       if (best_generation_score < programs_[i]->current_score()) {
         best_generation_score = programs_[i]->current_score();

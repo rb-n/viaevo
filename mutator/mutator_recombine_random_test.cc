@@ -15,13 +15,13 @@ namespace {
 
 TEST(MutatorRecombineRandomTest, Mutate) {
   std::shared_ptr<viaevo::Program> target =
-      viaevo::Program::CreateSimpleSmall();
+      viaevo::Program::Create("elfs/simple_small");
 
   std::shared_ptr<viaevo::Program> parent1 =
-      viaevo::Program::CreateSimpleSmall();
+      viaevo::Program::Create("elfs/simple_small");
 
   std::shared_ptr<viaevo::Program> parent2 =
-      viaevo::Program::CreateSimpleSmall();
+      viaevo::Program::Create("elfs/simple_small");
 
   // Simple mutation: Base the new code on parent1 and starting from index 20
   // place elements [0..10) from parent2's code.
