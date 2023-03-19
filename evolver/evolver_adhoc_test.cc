@@ -23,7 +23,8 @@ TEST(EvolverAdHocTest, RunSelectParents) {
   viaevo::ScorerMock scorer({0, 0, 5}, 10, {});
   std::vector<int> results;
 
-  viaevo::EvolverAdHoc evolver(2, 1, 1, scorer, mutator, gen, 1, 1);
+  viaevo::EvolverAdHoc evolver("elfs/simple_small", 2, 1, 1, scorer, mutator,
+                               gen, 1, 1);
 
   auto &programs = evolver.programs();
 

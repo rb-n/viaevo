@@ -34,8 +34,8 @@ int main() {
   // viaevo::ScorerGuessValue scorer(0xFFFFFFFF);
   viaevo::ScorerGuessValue scorer(63'451'913);
 
-  viaevo::EvolverAdHoc evolver(60, 10, 140, scorer, mutator_composite, gen, 5,
-                               1000000);
+  viaevo::EvolverAdHoc evolver("elfs/simple_small", 60, 10, 140, scorer,
+                               mutator_composite, gen, 5, 1000000);
   evolver.Run();
 
   return 0;

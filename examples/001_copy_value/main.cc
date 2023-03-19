@@ -32,8 +32,8 @@ int main() {
 
   viaevo::ScorerCopyValue scorer(gen, 50);
 
-  viaevo::EvolverAdHoc evolver(60, 10, 140, scorer, mutator_composite, gen, 10,
-                               1000000);
+  viaevo::EvolverAdHoc evolver("elfs/simple_small", 60, 10, 140, scorer,
+                               mutator_composite, gen, 10, 1000000);
   evolver.Run();
 
   return 0;

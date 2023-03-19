@@ -22,14 +22,15 @@ public:
 };
 } // namespace
 
-EvolverAdHoc::EvolverAdHoc(int mu, int phi, int lambda, Scorer &scorer,
-                           Mutator &mutator, Random &gen,
-                           int evaluations_per_program, int max_generations)
+EvolverAdHoc::EvolverAdHoc(std::string elf_filename, int mu, int phi,
+                           int lambda, Scorer &scorer, Mutator &mutator,
+                           Random &gen, int evaluations_per_program,
+                           int max_generations)
     : mu_(mu), phi_(phi), lambda_(lambda), scorer_(scorer), mutator_(mutator),
       gen_(gen), evaluations_per_program_(evaluations_per_program),
       max_generations_(max_generations) {
   for (int i = 0; i < mu_ + lambda_; ++i) {
-    programs_.push_back(Program::Create("elfs/simple_small"));
+    programs_.push_back(Program::Create(elf_filename));
   }
 }
 
@@ -74,21 +75,24 @@ void EvolverAdHoc::Run() {
     // Stage 3 (EvaluatePrograms): Update programs_ inputs, execute and score
     // programs_.
     // -----------------------------------------
-    // TODO: Enable multiple evaluation rounds (new
-    // inputs/execution/evaluation) per generation.
-    scorer_.ResetInputs();
+    for (int i = 0; i < mu_ + lambda_; ++i) {
+      programs_[i]->ResetCurrentScore();
+    }
+    for (int j = 0; j < evaluations_per_program_; ++j) {
+      scorer_.ResetInputs();
+      for (int i = 0; i < mu_ + lambda_; ++i) {
+        programs_[i]->SetElfInputs(scorer_.current_inputs());
+        programs_[i]->Execute();
+        programs_[i]->IncrementCurrentScoreBy(scorer_.Score(*programs_[i]));
+      }
+    }
+
     long long best_generation_score = 0;
     std::unordered_map<unsigned long long, int> rip_offset_counts;
     unsigned long long top_rip_offset = -1;
     int top_rip_offset_count = 0;
     std::vector<int> best_generation_results;
     for (int i = 0; i < mu_ + lambda_; ++i) {
-      programs_[i]->ResetCurrentScore();
-      for (int j = 0; j < evaluations_per_program_; ++j) {
-        programs_[i]->SetElfInputs(scorer_.current_inputs());
-        programs_[i]->Execute();
-        programs_[i]->IncrementCurrentScoreBy(scorer_.Score(*programs_[i]));
-      }
       if (best_generation_score < programs_[i]->current_score()) {
         best_generation_score = programs_[i]->current_score();
         best_generation_results = programs_[i]->last_results();

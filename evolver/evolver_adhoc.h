@@ -26,8 +26,9 @@ namespace viaevo {
 // reflecting common approaches in Evolutionary Computation.
 class EvolverAdHoc {
 public:
-  EvolverAdHoc(int mu, int phi, int lambda, Scorer &scorer, Mutator &mutator,
-               Random &gen, int evaluations_per_program, int max_generations);
+  EvolverAdHoc(std::string elf_filename, int mu, int phi, int lambda,
+               Scorer &scorer, Mutator &mutator, Random &gen,
+               int evaluations_per_program, int max_generations);
   // Selects mu_ parents by bringing them to the front of programs_.
   virtual void SelectParents();
   // Runs the evolution.
