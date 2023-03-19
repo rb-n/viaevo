@@ -148,7 +148,9 @@ protected:
   // Number of ptrace stops (e.g. syscalls) prior to executing main().
   int expected_ptrace_stops_ = -1;
 
-  static int expected_ptrace_stops_simple_small_;
+  // Memoize expected ptrace stops for different elfs to avoid computing them
+  // for every instance.
+  static std::unordered_map<std::string, int> expected_ptrace_stops_map_;
 };
 
 } // namespace viaevo

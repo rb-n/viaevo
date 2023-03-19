@@ -35,7 +35,7 @@ void myfail(const char *s) {
 
 std::unordered_map<std::string, Program::SymbolData> Program::symbol_data_map_;
 
-int Program::expected_ptrace_stops_simple_small_ = -1;
+std::unordered_map<std::string, int> Program::expected_ptrace_stops_map_;
 
 Program::Program(const char *filename) { SetupElfInMemory(filename); }
 
@@ -60,17 +60,18 @@ bool Program::IsInitialized() const {
 }
 
 std::shared_ptr<Program> Program::Create(const std::string filename) {
-  if (symbol_data_map_.count(filename) == 0) {
+  if (symbol_data_map_.count(filename) == 0 ||
+      expected_ptrace_stops_map_.count(filename) == 0) {
     Program p(filename.c_str());
     p.InitializeElfSymbolData();
     symbol_data_map_[filename] = p.symbol_data_;
     // The expected number of ptrace stops prior to executing is the full number
     // minus one (minus the final exit syscall).
-    expected_ptrace_stops_simple_small_ = p.Execute();
+    expected_ptrace_stops_map_[filename] = p.Execute();
   }
   return std::make_shared<Program>("elfs/simple_small",
                                    symbol_data_map_[filename],
-                                   expected_ptrace_stops_simple_small_);
+                                   expected_ptrace_stops_map_[filename]);
 }
 
 void Program::SetupElfInMemory(const char *filename) {
