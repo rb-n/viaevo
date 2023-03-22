@@ -37,7 +37,7 @@ int main() {
 
   viaevo::ScorerDoubleValue scorer(gen, 50);
 
-  viaevo::EvolverAdHoc evolver("elfs/simple_small", 60, 10, 140, scorer,
+  viaevo::EvolverAdHoc evolver("elfs/intermediate_small", 60, 10, 140, scorer,
                                mutator_composite, gen, 10, 1000000);
   evolver.Run();
 

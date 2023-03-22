@@ -69,8 +69,7 @@ std::shared_ptr<Program> Program::Create(const std::string filename) {
     // minus one (minus the final exit syscall).
     expected_ptrace_stops_map_[filename] = p.Execute();
   }
-  return std::make_shared<Program>("elfs/simple_small",
-                                   symbol_data_map_[filename],
+  return std::make_shared<Program>(filename.c_str(), symbol_data_map_[filename],
                                    expected_ptrace_stops_map_[filename]);
 }
 

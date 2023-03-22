@@ -29,5 +29,8 @@ cc_binary(
     "//mutator:mutator_recombine_random",
     "//mutator:mutator_composite_random",
   ],
-  data=["//elfs:simple_small"],
+  data=[
+    "//elfs:simple_small",
+    "//elfs:intermediate_small",
+  ],
 )

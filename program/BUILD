@@ -17,5 +17,8 @@ cc_test(
     ":program",
     "@com_google_googletest//:gtest_main",
   ],
-  data=["//elfs:simple_small"],
+  data=[
+    "//elfs:simple_small",
+    "//elfs:intermediate_small",
+  ],
 )

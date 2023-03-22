@@ -5,6 +5,11 @@
 
 // The ELF of this simple program is intended to serve as a template for
 // evolving the program to meet a computational objective.
+//
+// The "simple" part of simple_small refers to only simple operations being
+// present in the main function (in this case only assignments between dummy
+// variables and uncoditional relative jumps). The "small" part of simple_small
+// refers to small sizes of the dummy, results, and inputs arrays.
 
 #define NOPS                                                                   \
   asm("nop;nop;nop;nop;nop;nop;nop;nop;nop;nop;nop;nop;nop;nop;nop;nop")
@@ -40,6 +45,13 @@ int main() {
   // nop instuctions only, but only a short stretch of nop instructions is
   // visible in the ELF if only nop instructions are added here. The nop
   // instuctructions are therefore interspersed with other operations.
+  //
+  // The evolution using simple mutators may proceed via repurposing existing
+  // functionality (e.g. modifying the assignents between dummy variables below
+  // to affect inputs and results) rather than creating new valid instructions.
+  // Adding additional different operations between dummy variables (as in e.g.
+  // intermediate_small) may enable the evolution of more involved computtional
+  // tasks if this is the case.
   NOPS;
   dummy[1] = dummy[2];
   NOPS;
