@@ -27,6 +27,7 @@ cc_binary(
     "//mutator:mutator_point_last_instruction",
     "//mutator:mutator_point_random",
     "//mutator:mutator_recombine_random",
+    "//mutator:mutator_recombine_plain_elf",
     "//mutator:mutator_composite_random",
   ],
   data=[

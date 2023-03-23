@@ -78,6 +78,33 @@ cc_test(
 )
 
 cc_library(
+  name="mutator_recombine_plain_elf",
+  srcs=["mutator_recombine_plain_elf.cc"],
+  hdrs=["mutator_recombine_plain_elf.h"],
+  deps=[
+    ":mutator",
+    "//util:random",
+  ],
+  visibility=[
+    "//examples:__subpackages__",
+  ],
+)
+
+cc_test(
+  name="mutator_recombine_plain_elf_test",
+  srcs=["mutator_recombine_plain_elf.cc"],
+  deps=[
+    ":mutator_recombine_plain_elf",
+    "//util:random_mock",
+    "@com_google_googletest//:gtest_main",
+  ],
+  data=[
+    "//elfs:simple_small",
+    "//elfs:intermediate_small",
+  ],
+)
+
+cc_library(
   name="mutator_composite",
   srcs=["mutator_composite.cc"],
   hdrs=["mutator_composite.h"],
