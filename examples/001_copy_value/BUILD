@@ -31,3 +31,17 @@ cc_binary(
   ],
   data=["//elfs:simple_small"],
 )
+
+filegroup(
+  name="evolved_elfs",
+  srcs=glob(["evolved_elfs/*.elf"]),
+)
+
+cc_binary(
+  name="validate",
+  srcs=["validate.cc"],
+  deps=[
+    ":scorer_copy_value",
+  ],
+  data=[":evolved_elfs"],
+)
