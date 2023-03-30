@@ -65,8 +65,6 @@ std::shared_ptr<Program> Program::Create(const std::string filename) {
     Program p(filename.c_str());
     p.InitializeElfSymbolData();
     symbol_data_map_[filename] = p.symbol_data_;
-    // The expected number of ptrace stops prior to executing is the full number
-    // minus one (minus the final exit syscall).
     expected_ptrace_stops_map_[filename] = p.Execute();
   }
   return std::make_shared<Program>(filename.c_str(), symbol_data_map_[filename],
@@ -75,8 +73,6 @@ std::shared_ptr<Program> Program::Create(const std::string filename) {
 
 void Program::SetupElfInMemory(const char *filename) {
   int fd_from;
-  char buffer[4096];
-  ssize_t nread;
 
   if (elf_mem_fd_ != -1)
     close(elf_mem_fd_);
@@ -92,14 +88,22 @@ void Program::SetupElfInMemory(const char *filename) {
   if (fd_from == -1)
     myfail("open failed");
 
+  WriteFile(fd_from, elf_mem_fd_);
+
+  close(fd_from);
+}
+
+void Program::WriteFile(int fd_from, int fd_to) {
+  char buffer[4096];
+  ssize_t nread;
+
   // Based on https://stackoverflow.com/a/2180788
   while (nread = read(fd_from, buffer, sizeof buffer), nread > 0) {
     char *out_ptr = buffer;
     ssize_t nwritten;
 
     do {
-      nwritten = write(elf_mem_fd_, out_ptr, nread);
-
+      nwritten = write(fd_to, out_ptr, nread);
       if (nwritten >= 0) {
         nread -= nwritten;
         out_ptr += nwritten;
@@ -108,8 +112,25 @@ void Program::SetupElfInMemory(const char *filename) {
       }
     } while (nread > 0);
   }
+}
 
-  close(fd_from);
+void Program::SaveElf(const char *filename) {
+  int fd_to;
+
+  if (elf_mem_fd_ == -1)
+    myfail("invalid elf_mem_fd_");
+
+  off_t offset = lseek(elf_mem_fd_, 0, SEEK_SET);
+  if (offset != 0)
+    myfail("lseek to 0 failed");
+
+  fd_to = creat(filename, 0666);
+  if (fd_to == -1)
+    myfail("creat failed");
+
+  WriteFile(elf_mem_fd_, fd_to);
+
+  close(fd_to);
 }
 
 void Program::InitializeElfSymbolData() {

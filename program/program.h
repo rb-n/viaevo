@@ -63,6 +63,10 @@ public:
   // evaluation of the Program on a single set of inputs.
   void IncrementCurrentScoreBy(long long increment);
 
+  // Save the current elf in the memory file referenced by the elf_mem_fd_ file
+  // descriptor into filename.
+  void SaveElf(const char *filename);
+
   long long current_score() { return current_score_; }
   unsigned long long last_syscall() const { return last_syscall_; }
   unsigned long long last_rip_offset() const { return last_rip_offset_; }
@@ -76,6 +80,10 @@ private:
   // Copies the ELF from filename to an in memory file referenced by the
   // elf_mem_fd_ member variable.
   void SetupElfInMemory(const char *filename);
+
+  // Writes the contents one file (file descriptor fd_from) into another (file
+  // descriptor fd_to). Used by member functions SetupElfInMemory and SaveElf.
+  void WriteFile(int fd_from, int fd_to);
 
   // Find main() address (and length) and results address and lenght in the ELF.
   void InitializeElfSymbolData();

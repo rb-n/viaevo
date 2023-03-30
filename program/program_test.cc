@@ -480,4 +480,27 @@ TEST(ProgramTest, LastRipOffset) {
       << "Unexpected last results should be for 'default' Execute";
 }
 
+TEST(ProgramTest, SaveElfSimpleSmall) {
+  std::shared_ptr<viaevo::Program> program =
+      viaevo::Program::Create("elfs/simple_small");
+
+  std::vector<char> elf_code = program->GetElfCode();
+  EXPECT_FALSE(elf_code.empty());
+
+  // Set program's code to all nops.
+  std::vector<char> nops(elf_code.size(), 0x90);
+  program->SetElfCode(nops);
+  EXPECT_EQ(program->GetElfCode(), nops);
+
+  std::string filename = testing::TempDir() + "unit_test_save_elf.elf";
+
+  program->SaveElf(filename.c_str());
+
+  std::shared_ptr<viaevo::Program> saved_program =
+      viaevo::Program::Create(filename);
+
+  // Saved program's code should be all nops.
+  EXPECT_EQ(saved_program->GetElfCode(), nops);
+}
+
 } // namespace
