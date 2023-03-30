@@ -92,10 +92,12 @@ void EvolverAdHoc::Run() {
     unsigned long long top_rip_offset = -1;
     int top_rip_offset_count = 0;
     std::vector<int> best_generation_results;
+    int best_generation_program_index = -1;
     for (int i = 0; i < mu_ + lambda_; ++i) {
       if (best_generation_score < programs_[i]->current_score()) {
         best_generation_score = programs_[i]->current_score();
         best_generation_results = programs_[i]->last_results();
+        best_generation_program_index = i;
       }
       unsigned long long rip_offset = programs_[i]->last_rip_offset();
       ++rip_offset_counts[rip_offset];
@@ -120,6 +122,7 @@ void EvolverAdHoc::Run() {
     }
     if (best_overall_score == max_score) {
       std::cout << "DONE! :)\n";
+      programs_[best_generation_program_index]->SaveElf("best_program.elf");
       break;
     }
   }
