@@ -33,3 +33,21 @@ sh_test(
   srcs = ["intermediate_small_test.sh"],
   data = [":intermediate_small"],
 )
+
+cc_binary(
+  name = "intermediate_medium",
+  srcs = ["intermediate_medium.c"],
+  visibility=[
+    "//program:__pkg__",
+    "//mutator:__pkg__",
+    "//examples:__subpackages__",
+    "//evolver:__pkg__",
+  ],
+)
+
+sh_test(
+  name = "intermediate_medium_test",
+  size = "small",
+  srcs = ["intermediate_medium_test.sh"],
+  data = [":intermediate_medium"],
+)

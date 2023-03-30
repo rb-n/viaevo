@@ -19,6 +19,7 @@ cc_test(
   ],
   data=[
     "//elfs:simple_small",
+    "//elfs:intermediate_medium",
     "//elfs:intermediate_small",
   ],
 )
