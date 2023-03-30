@@ -1,1 +1,2 @@
 /bazel-*
+/examples/100_mnist_digits/data/*-ubyte
