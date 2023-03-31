@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <iomanip>
 #include <iostream>
+#include <string>
 #include <unordered_map>
 
 namespace viaevo {
@@ -119,6 +120,9 @@ void EvolverAdHoc::Run() {
       for (auto itm : best_generation_results)
         std::cout << itm << " ";
       std::cout << "\n";
+      std::string filename =
+          "gen_" + std::to_string(current_generation_) + "_best_program.elf";
+      programs_[best_generation_program_index]->SaveElf(filename.c_str());
     }
     if (best_overall_score == max_score) {
       std::cout << "DONE! :)\n";
