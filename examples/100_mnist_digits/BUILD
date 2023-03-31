@@ -44,3 +44,20 @@ filegroup(
     "data/train-labels-idx1-ubyte"
   ],
 )
+
+filegroup(
+  name="evolved_elfs",
+  srcs=glob(["evolved_elfs/*.elf"]),
+)
+
+cc_binary(
+  name="validate",
+  srcs=["validate.cc"],
+  deps=[
+    ":scorer_mnist_digits",
+  ],
+  data=[
+    ":evolved_elfs",
+    ":train_data",
+  ],
+)
