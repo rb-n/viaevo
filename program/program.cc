@@ -282,6 +282,7 @@ int Program::Execute(int max_ptrace_stops) {
 
   pid = fork();
 
+  // TODO: Fork sometimes fails with "resource not available", retry?
   if (pid == -1)
     myfail("fork failed");
 
@@ -500,6 +501,10 @@ void Program::ReadLastResultsAndLastRipOffsetFromElfProcess(
   nread = process_vm_readv(elf_pid, local, 1, remote, 1, 0);
   if (nread != (ssize_t)symbol_data_.results_st_size_)
     myfail("process_vm_readv failed");
+
+  if (track_results_history_) {
+    results_history_.push_back(last_results_);
+  }
 }
 
 void Program::ClearLastState() {
@@ -542,6 +547,10 @@ void Program::SetElfCode(const std::vector<char> &elf_code) {
   ssize_t nwritten = write(elf_mem_fd_, elf_code.data(), elf_code.size());
   if (nwritten != (off_t)elf_code.size())
     myfail("setting elf code failed");
+
+  // Clearing results history as this is intended only for multiple executions
+  // of the same code on different inputs.
+  results_history_.clear();
 }
 
 std::vector<int> Program::GetElfInputs() const {

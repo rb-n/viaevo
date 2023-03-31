@@ -75,6 +75,11 @@ public:
   int last_stop_signal() const { return last_stop_signal_; }
   const std::vector<int> &last_results() const { return last_results_; }
   int expected_ptrace_stops() const { return expected_ptrace_stops_; }
+  bool track_results_history() const { return track_results_history_; };
+  void set_track_results_history(bool t) { track_results_history_ = t; };
+  const std::vector<std::vector<int>> &results_history() {
+    return results_history_;
+  };
 
 private:
   // Copies the ELF from filename to an in memory file referenced by the
@@ -128,6 +133,16 @@ protected:
 
   // Results from the last completed execution of the program.
   std::vector<int> last_results_;
+
+  // Results over consecutive executions can be stored in results_history_ (if
+  // track_results_history_ is set to true). This is intended for multiple
+  // executions of the same program on different inputs (results_history_ is
+  // cleared on e.g. SetElfCode). The intention is to "reward" programs that
+  // produce different results on different inputs to set them apart from
+  // programs producing the same result on different input (try to steer away
+  // from the "broken clock is right twice a day" phenomenon).
+  bool track_results_history_ = false;
+  std::vector<std::vector<int>> results_history_;
 
   // Current score set by e.g. a Scorer reflects an accumulated performance of
   // the program on recent (sets of) inputs.

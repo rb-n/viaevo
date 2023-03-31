@@ -503,4 +503,77 @@ TEST(ProgramTest, SaveElfSimpleSmall) {
   EXPECT_EQ(saved_program->GetElfCode(), nops);
 }
 
+TEST(ProgramTest, ResultsHistorySimpleSmall) {
+  std::shared_ptr<viaevo::Program> program =
+      viaevo::Program::Create("elfs/simple_small");
+
+  EXPECT_EQ(program->track_results_history(), false)
+      << "Results history should not be tracked in Programs by default. (#1)";
+  EXPECT_EQ(program->results_history().size(), 0)
+      << "Results history should be empty after program creation.";
+
+  std::vector<int> default_results{10, 0, 0, 0, 0, 0, 3, 3, 3, 3, 3};
+  std::vector<int> changed_results = default_results;
+  // results[0] is changed in main() of //elfs:simple_small from 10 to 20.
+  changed_results[0] = 20;
+
+  program->Execute();
+
+  EXPECT_EQ(program->track_results_history(), false)
+      << "Results history should not be tracked in Programs by default. (#2)";
+  EXPECT_EQ(program->results_history().size(), 0)
+      << "Results history should be empty after program execution(s) by "
+         "default. (#2)";
+
+  program->Execute(5);
+
+  EXPECT_EQ(program->track_results_history(), false)
+      << "Results history should not be tracked in Programs by default. (#3)";
+  EXPECT_EQ(program->results_history().size(), 0)
+      << "Results history should be empty after program execution(s) by "
+         "default. (#3)";
+
+  program->set_track_results_history(true);
+
+  EXPECT_EQ(program->track_results_history(), true)
+      << "Results history should be tracked in Programs after setting it so.";
+
+  program->Execute();
+
+  EXPECT_EQ(program->results_history().size(), 1)
+      << "Results history should have one item after first execution since "
+         "tracking the results history.";
+
+  std::vector<std::vector<int>> results_history{changed_results};
+  EXPECT_EQ(program->results_history(), results_history)
+      << "Results history should have changed results (first item 20) after "
+         "one full execution with results history tracking on.";
+
+  program->Execute(5);
+
+  EXPECT_EQ(program->results_history().size(), 2)
+      << "Results history should have two items after first execution since "
+         "tracking the results history.";
+
+  // Add default results to the expected results history after "short" execute
+  // (with only 5 ptrace stops allowed) which will keep the value of the first
+  // item in last_results_ at 10.
+  results_history.push_back(default_results);
+
+  EXPECT_EQ(program->results_history(), results_history)
+      << "Results history should have changed results (first item 20) and "
+         "default results (first item 10) after one full execution and one "
+         "'short' execution with results history tracking on.";
+
+  std::vector<char> elf_code = program->GetElfCode();
+  EXPECT_FALSE(elf_code.empty());
+
+  // Set program's code to all nops.
+  std::vector<char> nops(elf_code.size(), 0x90);
+  program->SetElfCode(nops);
+
+  EXPECT_EQ(program->results_history().size(), 0)
+      << "Results history should be empty (cleared) after setting new code.";
+}
+
 } // namespace
