@@ -28,13 +28,15 @@ class EvolverAdHoc {
 public:
   EvolverAdHoc(std::string elf_filename, int mu, int phi, int lambda,
                Scorer &scorer, Mutator &mutator, Random &gen,
-               int evaluations_per_program, int max_generations);
+               int evaluations_per_program, int max_generations,
+               bool score_results_history = false);
   // Selects mu_ parents by bringing them to the front of programs_.
   virtual void SelectParents();
   // Runs the evolution.
   virtual void Run();
 
-  const std::vector<std::shared_ptr<Program>> &programs() { return programs_; };
+  const std::vector<std::shared_ptr<Program>> &programs() { return programs_; }
+  bool score_results_history() const { return score_results_history_; }
 
 protected:
   // Size of population in each generation (iteration) is (mu_ + lambda_).
@@ -64,6 +66,10 @@ protected:
   // evolution.
   int current_generation_ = 0;
   int max_generations_ = 10'000;
+
+  // When set to true, score Programs also on their results_history_ after all
+  // evaluations in a generation are completed.
+  bool score_results_history_ = false;
 };
 
 } // namespace viaevo

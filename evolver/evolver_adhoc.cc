@@ -26,12 +26,15 @@ public:
 EvolverAdHoc::EvolverAdHoc(std::string elf_filename, int mu, int phi,
                            int lambda, Scorer &scorer, Mutator &mutator,
                            Random &gen, int evaluations_per_program,
-                           int max_generations)
+                           int max_generations, bool score_results_history)
     : mu_(mu), phi_(phi), lambda_(lambda), scorer_(scorer), mutator_(mutator),
       gen_(gen), evaluations_per_program_(evaluations_per_program),
-      max_generations_(max_generations) {
+      max_generations_(max_generations),
+      score_results_history_(score_results_history) {
   for (int i = 0; i < mu_ + lambda_; ++i) {
-    programs_.push_back(Program::Create(elf_filename));
+    auto program = Program::Create(elf_filename);
+    program->set_track_results_history(score_results_history);
+    programs_.push_back(program);
   }
 }
 
@@ -85,6 +88,13 @@ void EvolverAdHoc::Run() {
         programs_[i]->SetElfInputs(scorer_.current_inputs());
         programs_[i]->Execute();
         programs_[i]->IncrementCurrentScoreBy(scorer_.Score(*programs_[i]));
+      }
+    }
+
+    if (score_results_history_) {
+      for (int i = 0; i < mu_ + lambda_; ++i) {
+        programs_[i]->IncrementCurrentScoreBy(
+            scorer_.ScoreResultsHistory(programs_[i]->results_history()));
       }
     }
 

@@ -19,6 +19,13 @@ public:
   virtual ~Scorer() = default;
   // Returns score for a specific Program.
   virtual long long Score(const Program &program) const = 0;
+  // Optional additional scoring based on Program's results_history_ enables
+  // e.g. "rewarding" Programs that compute different results on different
+  // inputs for the same code.
+  virtual long long
+  ScoreResultsHistory(const std::vector<std::vector<int>> &) const {
+    return 0;
+  }
   // Returns maximum possible score for "perfect" results. Should not depend on
   // current_inputs_.
   virtual long long MaxScore() const = 0;
