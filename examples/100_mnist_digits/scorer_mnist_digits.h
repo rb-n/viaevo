@@ -26,9 +26,14 @@ public:
                              std::string labels_filename);
   // Returns score for a specific Program.
   virtual long long Score(const Program &program) const override;
+  // Returns score for a specific Program's results history.
+  virtual long long
+  ScoreResultsHistory(const std::vector<std::vector<int>> &) const override;
   // Returns maximum possible score for "perfect" results. Should be the same
   // for different values of current_inputs_.
   virtual long long MaxScore() const override;
+  // Returns maximum possible score for "perfect" results history.
+  virtual long long MaxScoreResultsHistory() const override;
   // Initializes new value(s) for current_inputs_.
   virtual void ResetInputs() override;
 

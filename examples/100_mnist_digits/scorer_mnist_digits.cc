@@ -10,6 +10,7 @@
 #include <fstream>
 #include <ios>
 #include <iostream>
+#include <unordered_set>
 
 namespace viaevo {
 
@@ -26,7 +27,7 @@ long long ScorerMnistDigits::Score(const Program &program) const {
 
   // Return maximum score if results[1] == expected_value_;
   if (results[1] == expected_value_)
-    return 10'000;
+    return 1'000'000'000;
 
   // results[0] is disregarded as it is changed in main of //elfs:simple_small
   // to 20.
@@ -40,15 +41,51 @@ long long ScorerMnistDigits::Score(const Program &program) const {
     if (results[i] != -1)
       score += 1;
     if (results[i] >= 0 && results[i] <= 9)
-      score += 20;
+      score += 1'000;
     if (results[i] == expected_value_)
-      score += 400;
+      score += 1'000'000;
   }
 
   return score;
 }
 
-long long ScorerMnistDigits::MaxScore() const { return 10'000; }
+// "Reward" different values for results[1] across executions on different
+// inputs. (This should help avoid the evolved programs always computing the
+// same results irrespective of the inputs.)
+long long ScorerMnistDigits::ScoreResultsHistory(
+    const std::vector<std::vector<int>> &results_history) const {
+  if (results_history.size() < 1) {
+    return 0;
+  }
+
+  long long score = 0;
+
+  std::unordered_set<int> results1_values;
+
+  for (auto &results : results_history) {
+    results1_values.insert(results[1]);
+  }
+
+  if (results1_values.size() > 1) {
+    // Add 1T to score if more than one value shows up in results[1].
+    score += 1'000'000'000'000;
+    for (int i = 0; i <= 9; ++i) {
+      if (results1_values.count(i) > 0) {
+        // Add 1T for each valid digit value showing up in results[1].
+        score += 1'000'000'000'000;
+      }
+    }
+  }
+
+  return score;
+}
+
+long long ScorerMnistDigits::MaxScore() const { return 1'000'000'000; }
+
+long long ScorerMnistDigits::MaxScoreResultsHistory() const {
+  // 1T for more than one value and 1T for each valid digit value.
+  return 11'000'000'000'000;
+}
 
 void ScorerMnistDigits::ResetInputs() {
   int pos = gen_() % num_samples_;

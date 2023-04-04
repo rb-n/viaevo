@@ -149,23 +149,65 @@ TEST(ScorerMnistDigitsTest, Score) {
 
   results[5] = 4;
   program.set_last_results(results);
-  EXPECT_EQ(scorer.Score(program), 21);
+  EXPECT_EQ(scorer.Score(program), 1'001);
 
   results[5] = 5;
   program.set_last_results(results);
-  EXPECT_EQ(scorer.Score(program), 421);
+  EXPECT_EQ(scorer.Score(program), 1'001'001);
 
   results[1] = 5;
   program.set_last_results(results);
-  EXPECT_EQ(scorer.Score(program), 10'000);
+  EXPECT_EQ(scorer.Score(program), 1'000'000'000);
 
   results[1] = 4;
   program.set_last_results(results);
-  EXPECT_EQ(scorer.Score(program), 442);
+  EXPECT_EQ(scorer.Score(program), 1'002'002);
 
   scorer.ResetInputs();
   EXPECT_EQ(scorer.expected_value(), 1);
-  EXPECT_EQ(scorer.Score(program), 42);
+  EXPECT_EQ(scorer.Score(program), 2'002);
+}
+
+TEST(ScorerMnistDigitsTest, ScoreResultsHistory) {
+  viaevo::RandomMock gen({0, 14});
+  EXPECT_EQ(gen(), 0);
+  EXPECT_EQ(gen(), 14);
+  EXPECT_EQ(gen(), 0);
+  EXPECT_EQ(gen(), 14);
+
+  viaevo::ScorerMnistDigits scorer(
+      gen, "examples/100_mnist_digits/data/train-images-idx3-ubyte",
+      "examples/100_mnist_digits/data/train-labels-idx1-ubyte");
+  EXPECT_EQ(scorer.expected_value(), 5);
+
+  std::vector<std::vector<int>> results_history;
+
+  EXPECT_EQ(scorer.ScoreResultsHistory(results_history), 0);
+
+  results_history.push_back({20, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1});
+  EXPECT_EQ(scorer.ScoreResultsHistory(results_history), 0);
+
+  results_history.push_back({20, -1, -1, -1, -1, -1, -1, -1, -1, -1, 100});
+  EXPECT_EQ(scorer.ScoreResultsHistory(results_history), 0);
+
+  results_history.push_back({-9999, -1, -1, -1, -1, -1, -1, -1, -1, -1, 100});
+  EXPECT_EQ(scorer.ScoreResultsHistory(results_history), 0);
+
+  results_history.push_back({-9999, -5, -1, -1, -1, -1, -1, -1, -1, -1, 100});
+  EXPECT_EQ(scorer.ScoreResultsHistory(results_history), 1'000'000'000'000);
+
+  // Same results as the nearest above should not change the score.
+  results_history.push_back({-9999, 5, -1, -1, -1, -1, -1, -1, -1, -1, 100});
+  EXPECT_EQ(scorer.ScoreResultsHistory(results_history), 2'000'000'000'000);
+
+  results_history.push_back({-9999, 7, -1, -1, -1, -1, -1, -1, -1, -1, 100});
+  EXPECT_EQ(scorer.ScoreResultsHistory(results_history), 3'000'000'000'000);
+
+  results_history.push_back({-9999, 7, 42, -1, -1, -1, -1, -1, -1, -1, 100});
+  EXPECT_EQ(scorer.ScoreResultsHistory(results_history), 3'000'000'000'000);
+
+  results_history.push_back({-9999, 42, -1, -1, -1, -1, -1, -1, -1, -1, -1});
+  EXPECT_EQ(scorer.ScoreResultsHistory(results_history), 3'000'000'000'000);
 }
 
 TEST(ScorerMnistDigitsTest, MaxScore) {
@@ -178,9 +220,11 @@ TEST(ScorerMnistDigitsTest, MaxScore) {
   viaevo::ScorerMnistDigits scorer(
       gen, "examples/100_mnist_digits/data/train-images-idx3-ubyte",
       "examples/100_mnist_digits/data/train-labels-idx1-ubyte");
-  EXPECT_EQ(scorer.MaxScore(), 10'000);
+  EXPECT_EQ(scorer.MaxScore(), 1'000'000'000);
+  EXPECT_EQ(scorer.MaxScoreResultsHistory(), 11'000'000'000'000);
   scorer.ResetInputs();
-  EXPECT_EQ(scorer.MaxScore(), 10'000);
+  EXPECT_EQ(scorer.MaxScore(), 1'000'000'000);
+  EXPECT_EQ(scorer.MaxScoreResultsHistory(), 11'000'000'000'000);
 }
 
 } // namespace
