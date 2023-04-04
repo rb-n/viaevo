@@ -29,6 +29,9 @@ public:
   // Returns maximum possible score for "perfect" results. Should not depend on
   // current_inputs_.
   virtual long long MaxScore() const = 0;
+  // Returns maximum possible score for "perfect" results history.
+  virtual long long MaxScoreResultsHistory() const { return 0; }
+
   // Generates new current_inputs_ for a new round of evaluation of Programs.
   virtual void ResetInputs() = 0;
 

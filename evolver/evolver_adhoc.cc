@@ -56,8 +56,10 @@ void EvolverAdHoc::SelectParents() {
 // TODO: Put the three stages in individual member functions and add unit
 // tests for those.
 void EvolverAdHoc::Run() {
+  std::cout.imbue(std::locale(""));
   long long best_overall_score = 0;
-  long long max_score = evaluations_per_program_ * scorer_.MaxScore();
+  long long max_score = evaluations_per_program_ * scorer_.MaxScore() +
+                        scorer_.MaxScoreResultsHistory();
   while (current_generation_ < max_generations_) {
     ++current_generation_;
 
@@ -131,7 +133,7 @@ void EvolverAdHoc::Run() {
         std::cout << itm << " ";
       std::cout << "\n";
       std::string filename =
-          "gen_" + std::to_string(current_generation_) + "_best_program.elf";
+          "v3_gen_" + std::to_string(current_generation_) + "_best_program.elf";
       programs_[best_generation_program_index]->SaveElf(filename.c_str());
     }
     if (best_overall_score == max_score) {
