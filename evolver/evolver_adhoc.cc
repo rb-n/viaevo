@@ -83,6 +83,7 @@ void EvolverAdHoc::Run() {
     // -----------------------------------------
     for (int i = 0; i < mu_ + lambda_; ++i) {
       programs_[i]->ResetCurrentScore();
+      programs_[i]->ClearResultsHistory();
     }
     for (int j = 0; j < evaluations_per_program_; ++j) {
       scorer_.ResetInputs();
@@ -133,7 +134,7 @@ void EvolverAdHoc::Run() {
         std::cout << itm << " ";
       std::cout << "\n";
       std::string filename =
-          "v4_gen_" + std::to_string(current_generation_) + "_best_program.elf";
+          "v5_gen_" + std::to_string(current_generation_) + "_best_program.elf";
       programs_[best_generation_program_index]->SaveElf(filename.c_str());
     }
     if (best_overall_score == max_score) {

@@ -133,6 +133,10 @@ void Program::SaveElf(const char *filename) {
   close(fd_to);
 }
 
+void Program::ClearResultsHistory() {
+  results_history_.clear();
+}
+
 void Program::InitializeElfSymbolData() {
   if (elf_mem_fd_ == -1)
     myfail("invalid elf_mem_fd_");
@@ -547,10 +551,6 @@ void Program::SetElfCode(const std::vector<char> &elf_code) {
   ssize_t nwritten = write(elf_mem_fd_, elf_code.data(), elf_code.size());
   if (nwritten != (off_t)elf_code.size())
     myfail("setting elf code failed");
-
-  // Clearing results history as this is intended only for multiple executions
-  // of the same code on different inputs.
-  results_history_.clear();
 }
 
 std::vector<int> Program::GetElfInputs() const {

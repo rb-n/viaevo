@@ -82,11 +82,36 @@ TEST(EvolverAdHocTest, ScoreResultsHistory) {
   EXPECT_EQ(programs[1]->current_score(), 1);
   EXPECT_EQ(programs[2]->current_score(), 7);
 
+  EXPECT_EQ(programs[0]->results_history().size(), 1);
+
   evolver.SelectParents();
 
   EXPECT_EQ(programs[0]->current_score(), 7);
   EXPECT_EQ(programs[1]->current_score(), 1);
   EXPECT_EQ(programs[2]->current_score(), 0);
+
+  viaevo::EvolverAdHoc evolver_3_generations("elfs/simple_small", 2, 0, 1,
+                                             scorer, mutator, gen, 1, 3, true);
+
+  evolver_3_generations.Run();
+
+  EXPECT_EQ(evolver_3_generations.programs()[0]->results_history().size(), 1)
+      << "Program's results history should be of size one after three "
+         "generations of one evaluation per generation - results from the one "
+         "evaluation from the last generation only.";
+
+  viaevo::EvolverAdHoc evolver_3_generations_2_evaluations(
+      "elfs/simple_small", 2, 0, 1, scorer, mutator, gen, 2, 3, true);
+
+  evolver_3_generations_2_evaluations.Run();
+
+  EXPECT_EQ(evolver_3_generations_2_evaluations.programs()[0]
+                ->results_history()
+                .size(),
+            2)
+      << "Program's results history should be of size two after three "
+         "generations of two evaluation per generation - results from the two "
+         "evaluation from the last generation only.";
 }
 
 } // namespace

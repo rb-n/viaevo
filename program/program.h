@@ -66,6 +66,8 @@ public:
   // Save the current elf in the memory file referenced by the elf_mem_fd_ file
   // descriptor into filename.
   void SaveElf(const char *filename);
+  // Clear results_history_.
+  void ClearResultsHistory();
 
   long long current_score() { return current_score_; }
   unsigned long long last_syscall() const { return last_syscall_; }
@@ -136,11 +138,10 @@ protected:
 
   // Results over consecutive executions can be stored in results_history_ (if
   // track_results_history_ is set to true). This is intended for multiple
-  // executions of the same program on different inputs (results_history_ is
-  // cleared on e.g. SetElfCode). The intention is to "reward" programs that
-  // produce different results on different inputs to set them apart from
-  // programs producing the same result on different input (try to steer away
-  // from the "broken clock is right twice a day" phenomenon).
+  // executions of the same program on different inputs. The intention is to
+  // "reward" programs that produce different results on different inputs to set
+  // them apart from programs producing the same result on different input (try
+  // to steer away from the "broken clock is right twice a day" phenomenon).
   bool track_results_history_ = false;
   std::vector<std::vector<int>> results_history_;
 

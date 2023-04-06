@@ -572,8 +572,13 @@ TEST(ProgramTest, ResultsHistorySimpleSmall) {
   std::vector<char> nops(elf_code.size(), 0x90);
   program->SetElfCode(nops);
 
+  EXPECT_EQ(program->results_history(), results_history)
+      << "Results history should be unaffected after SetElfCode.";
+
+  program->ClearResultsHistory();
+
   EXPECT_EQ(program->results_history().size(), 0)
-      << "Results history should be empty (cleared) after setting new code.";
+      << "Results history should be empty (cleared) after ClearResultsHistory.";
 }
 
 } // namespace
