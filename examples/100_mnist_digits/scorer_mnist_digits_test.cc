@@ -194,20 +194,20 @@ TEST(ScorerMnistDigitsTest, ScoreResultsHistory) {
   EXPECT_EQ(scorer.ScoreResultsHistory(results_history), 0);
 
   results_history.push_back({-9999, -5, -1, -1, -1, -1, -1, -1, -1, -1, 100});
-  EXPECT_EQ(scorer.ScoreResultsHistory(results_history), 1'000'000'000'000);
+  EXPECT_EQ(scorer.ScoreResultsHistory(results_history), 17'000'000'000'000);
 
   // Same results as the nearest above should not change the score.
   results_history.push_back({-9999, 5, -1, -1, -1, -1, -1, -1, -1, -1, 100});
-  EXPECT_EQ(scorer.ScoreResultsHistory(results_history), 2'000'000'000'000);
+  EXPECT_EQ(scorer.ScoreResultsHistory(results_history), 27'000'000'000'000);
 
   results_history.push_back({-9999, 7, -1, -1, -1, -1, -1, -1, -1, -1, 100});
-  EXPECT_EQ(scorer.ScoreResultsHistory(results_history), 3'000'000'000'000);
+  EXPECT_EQ(scorer.ScoreResultsHistory(results_history), 37'000'000'000'000);
 
   results_history.push_back({-9999, 7, 42, -1, -1, -1, -1, -1, -1, -1, 100});
-  EXPECT_EQ(scorer.ScoreResultsHistory(results_history), 3'000'000'000'000);
+  EXPECT_EQ(scorer.ScoreResultsHistory(results_history), 37'000'000'000'000);
 
   results_history.push_back({-9999, 42, -1, -1, -1, -1, -1, -1, -1, -1, -1});
-  EXPECT_EQ(scorer.ScoreResultsHistory(results_history), 3'000'000'000'000);
+  EXPECT_EQ(scorer.ScoreResultsHistory(results_history), 36'000'000'000'000);
 }
 
 TEST(ScorerMnistDigitsTest, MaxScore) {
@@ -221,10 +221,10 @@ TEST(ScorerMnistDigitsTest, MaxScore) {
       gen, "examples/100_mnist_digits/data/train-images-idx3-ubyte",
       "examples/100_mnist_digits/data/train-labels-idx1-ubyte");
   EXPECT_EQ(scorer.MaxScore(), 1'000'000'000);
-  EXPECT_EQ(scorer.MaxScoreResultsHistory(), 11'000'000'000'000);
+  EXPECT_EQ(scorer.MaxScoreResultsHistory(), 119'000'000'000'000);
   scorer.ResetInputs();
   EXPECT_EQ(scorer.MaxScore(), 1'000'000'000);
-  EXPECT_EQ(scorer.MaxScoreResultsHistory(), 11'000'000'000'000);
+  EXPECT_EQ(scorer.MaxScoreResultsHistory(), 119'000'000'000'000);
 }
 
 } // namespace

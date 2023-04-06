@@ -54,28 +54,38 @@ long long ScorerMnistDigits::Score(const Program &program) const {
 // same results irrespective of the inputs.)
 long long ScorerMnistDigits::ScoreResultsHistory(
     const std::vector<std::vector<int>> &results_history) const {
-  if (results_history.size() < 1) {
-    return 0;
-  }
-
-  long long score = 0;
-
   std::unordered_set<int> results1_values;
 
   for (auto &results : results_history) {
     results1_values.insert(results[1]);
   }
 
-  if (results1_values.size() > 1) {
-    // Add 1T to score if more than one value shows up in results[1].
-    score += 1'000'000'000'000;
-    for (int i = 0; i <= 9; ++i) {
-      if (results1_values.count(i) > 0) {
-        // Add 1T for each valid digit value showing up in results[1].
-        score += 1'000'000'000'000;
-      }
+  if (results1_values.size() < 2) {
+    // If there are not at least two different values in results[1], the score
+    // is 0.
+    return 0;
+  }
+
+  // There are at least two differen values in results[1], start score at 10T.
+  long long score = 10'000'000'000'000;
+
+  int values_in_range_count = 0;
+  for (int i = 0; i <= 9; ++i) {
+    if (results1_values.count(i) > 0) {
+      ++values_in_range_count;
     }
   }
+
+  // Add 10T for each observed value in results[1] that is 0 >= and <= 9. The
+  // assumption is made that each value between 0 and 9 inclusive will be
+  // expected in results history.
+  score += values_in_range_count * 10'000'000'000'000LL;
+
+  // Add 9T if no value outside of the range is observer, add 8T if one such
+  // value is observed, 7T if two, etc... This should "incentivize" the evolved
+  // program to only provide values between 0 and 9 inclusive in results[1].
+  score += (9 - std::min(9UL, results1_values.size() - values_in_range_count)) *
+           1'000'000'000'000LL;
 
   return score;
 }
@@ -83,8 +93,9 @@ long long ScorerMnistDigits::ScoreResultsHistory(
 long long ScorerMnistDigits::MaxScore() const { return 1'000'000'000; }
 
 long long ScorerMnistDigits::MaxScoreResultsHistory() const {
-  // 1T for more than one value and 1T for each valid digit value.
-  return 11'000'000'000'000;
+  // 10T for more than one value and 10T for each valid digit value, 9T for no
+  // other values outside of the range in results[1].
+  return 119'000'000'000'000;
 }
 
 void ScorerMnistDigits::ResetInputs() {

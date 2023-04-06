@@ -16,7 +16,7 @@ int main() {
   gen.Seed(1);
 
   std::string filename =
-      "examples/100_mnist_digits/evolved_elfs/v3_gen_2991_best_program.elf";
+      "examples/100_mnist_digits/evolved_elfs/v4_gen_55_best_program.elf";
 
   std::shared_ptr<viaevo::Program> program = viaevo::Program::Create(filename);
 
