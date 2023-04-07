@@ -51,3 +51,9 @@ sh_test(
   srcs = ["intermediate_medium_test.sh"],
   data = [":intermediate_medium"],
 )
+
+cc_binary(
+  name = "inf_loop",
+  srcs = ["inf_loop.c"],
+  visibility=["//program:__pkg__"],
+)

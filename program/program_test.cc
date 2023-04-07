@@ -581,4 +581,41 @@ TEST(ProgramTest, ResultsHistorySimpleSmall) {
       << "Results history should be empty (cleared) after ClearResultsHistory.";
 }
 
+TEST(ProgramTest, CreateExecuteInfLoop) {
+  std::shared_ptr<viaevo::Program> program =
+      viaevo::Program::Create("elfs/inf_loop");
+
+  std::vector<int> default_results{10, 0, 0, 0, 0, 0, 3, 3, 3, 3, 3};
+
+  EXPECT_EQ(program->last_syscall(), 9999)
+      << "Last syscall not initialized correctly";
+  EXPECT_EQ(program->last_rip_offset(), -1)
+      << "Last rip offset not initialized correctly";
+  EXPECT_EQ(program->last_exit_status(), -9999)
+      << "Last exit status not initialized correctly";
+  EXPECT_EQ(program->last_term_signal(), -1)
+      << "Last term signal not initialized correctly";
+  EXPECT_EQ(program->last_stop_signal(), -1)
+      << "Last stop signal not initialized correctly";
+  EXPECT_TRUE(program->last_results().empty())
+      << "last_results not empty before first Execute";
+
+  // Execute the elf, should be terminated when 'attempting' exit.
+  int ptrace_stops_count_default = program->Execute();
+  EXPECT_NE(program->last_syscall(), 231)
+      << "Last syscall should not be exit for 'default' Execute (#1)";
+  EXPECT_NE(program->last_rip_offset(), -1)
+      << "Last rip offset should not be -1 for 'default' Execute (#1)";
+  EXPECT_EQ(program->last_exit_status(), -9999)
+      << "Last exit status should be invalid for 'default' Execute (#1)";
+  EXPECT_EQ(program->last_term_signal(), 9)
+      << "Last term signal should be 9 (SIGKILL) for 'default' Execute (#1)";
+  EXPECT_EQ(program->last_stop_signal(), 14)
+      << "Last stop signal should be 14 (SIGALRM) for 'default' Execute (#1)";
+  // main() in //elfs:simple_small executes therefore the value of results[0] is
+  // changed to 20.
+  EXPECT_EQ(program->last_results(), default_results)
+      << "Unexpected last results after a 'default' Execute (#1)";
+}
+
 } // namespace

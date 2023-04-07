@@ -18,6 +18,7 @@ cc_test(
     "@com_google_googletest//:gtest_main",
   ],
   data=[
+    "//elfs:inf_loop",
     "//elfs:simple_small",
     "//elfs:intermediate_medium",
     "//elfs:intermediate_small",

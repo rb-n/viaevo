@@ -13,6 +13,7 @@
 #include <stdlib.h>
 #include <sys/mman.h>
 #include <sys/ptrace.h>
+#include <sys/time.h>
 #include <sys/uio.h>
 #include <sys/user.h>
 #include <sys/wait.h>
@@ -133,9 +134,7 @@ void Program::SaveElf(const char *filename) {
   close(fd_to);
 }
 
-void Program::ClearResultsHistory() {
-  results_history_.clear();
-}
+void Program::ClearResultsHistory() { results_history_.clear(); }
 
 void Program::InitializeElfSymbolData() {
   if (elf_mem_fd_ == -1)
@@ -387,11 +386,17 @@ int Program::MonitorElfProcess(pid_t elf_pid, int max_ptrace_stops) {
 }
 
 void Program::RunElfProcess() {
-  // "Ask for a SIGALRM" to be delivered to the child process in 1 second.
-  // This should cause a termination of the process if e.g. an infinite loop is
-  // present.
-  // NOTE: A shorter time interval may be more approriate.
-  alarm(1);
+  // "Ask for a SIGALRM" to be delivered to the child process. This should cause
+  // a termination of the process if e.g. an infinite loop is present.
+  struct itimerval alarm_timer;
+
+  alarm_timer.it_interval.tv_sec = 0;
+  alarm_timer.it_interval.tv_usec = 0;
+  alarm_timer.it_value.tv_sec = 0;
+  // TODO: use a command line flag to set the duration.
+  alarm_timer.it_value.tv_usec = 50000;
+
+  setitimer(ITIMER_REAL, &alarm_timer, NULL);
 
   // From:
   // https://stackoverflow.com/questions/63208333/using-memfd-create-and-fexecve-to-run-elf-from-memory
