@@ -15,8 +15,18 @@ int main() {
   viaevo::Random gen;
   gen.Seed(1);
 
+  // std::string filename =
+  //     "examples/100_mnist_digits/evolved_elfs/v5_gen_7152_best_program.elf";
   std::string filename =
-      "examples/100_mnist_digits/evolved_elfs/v7_gen_1230_best_program.elf";
+      "examples/100_mnist_digits/evolved_elfs/v8_gen_8341_best_program.elf";
+
+  // Consistently over 10% success rate (?).
+  // std::string filename =
+  //     "examples/100_mnist_digits/evolved_elfs/v7_gen_11192_best_program.elf";
+  // std::string filename =
+  //     "examples/100_mnist_digits/evolved_elfs/v7_gen_10575_best_program.elf";
+  // std::string filename =
+  //     "examples/100_mnist_digits/evolved_elfs/v7_gen_10167_best_program.elf";
 
   std::shared_ptr<viaevo::Program> program = viaevo::Program::Create(filename);
 
@@ -26,7 +36,7 @@ int main() {
       "examples/100_mnist_digits/data/train-labels-idx1-ubyte");
 
   int correct = 0, total = 0;
-  for (int i = 0; i < 100; ++i) {
+  for (int i = 0; i < 2000; ++i) {
     scorer.ResetInputs();
     program->SetElfInputs(scorer.current_inputs());
     program->Execute();
@@ -47,7 +57,8 @@ int main() {
     for (auto itm : results) {
       std::cout << itm << " ";
     }
-    std::cout << " | " << program->last_stop_signal() << " " << program->last_term_signal();
+    std::cout << " | " << program->last_stop_signal() << " "
+              << program->last_term_signal();
     std::cout << std::endl;
   }
 

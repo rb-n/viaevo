@@ -66,8 +66,8 @@ long long ScorerMnistDigits::ScoreResultsHistory(
     return 0;
   }
 
-  // There are at least two differen values in results[1], start score at 10T.
-  long long score = 10'000'000'000'000;
+  // There are at least two differen values in results[1], start score at 1Q.
+  long long score = 1'000'000'000'000'000;
 
   int values_in_range_count = 0;
   for (int i = 0; i <= 9; ++i) {
@@ -76,16 +76,18 @@ long long ScorerMnistDigits::ScoreResultsHistory(
     }
   }
 
-  // Add 10T for each observed value in results[1] that is 0 >= and <= 9. The
+  // Add 1Q for each observed value in results[1] that is 0 >= and <= 9. The
   // assumption is made that each value between 0 and 9 inclusive will be
   // expected in results history.
-  score += values_in_range_count * 10'000'000'000'000LL;
+  score += values_in_range_count * 1'000'000'000'000'000LL;
 
-  // Add 9T if no value outside of the range is observer, add 8T if one such
-  // value is observed, 7T if two, etc... This should "incentivize" the evolved
-  // program to only provide values between 0 and 9 inclusive in results[1].
-  score += (9 - std::min(9UL, results1_values.size() - values_in_range_count)) *
-           1'000'000'000'000LL;
+  // Add 999T if no value outside of the range is observer, add 998T if one such
+  // value is observed, 997T if two, etc... This should "incentivize" the
+  // evolved program to only provide values between 0 and 9 inclusive in
+  // results[1].
+  score +=
+      (999 - std::min(999UL, results1_values.size() - values_in_range_count)) *
+      1'000'000'000'000LL;
 
   return score;
 }
@@ -93,9 +95,9 @@ long long ScorerMnistDigits::ScoreResultsHistory(
 long long ScorerMnistDigits::MaxScore() const { return 1'000'000'000; }
 
 long long ScorerMnistDigits::MaxScoreResultsHistory() const {
-  // 10T for more than one value and 10T for each valid digit value, 9T for no
+  // 1Q for more than one value and 1Q for each valid digit value, 999T for no
   // other values outside of the range in results[1].
-  return 119'000'000'000'000;
+  return 11'999'000'000'000'000;
 }
 
 void ScorerMnistDigits::ResetInputs() {
