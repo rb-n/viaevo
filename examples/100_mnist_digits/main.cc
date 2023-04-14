@@ -46,7 +46,7 @@ int main() {
       "examples/100_mnist_digits/data/train-labels-idx1-ubyte");
 
   viaevo::EvolverAdHoc evolver("elfs/intermediate_medium", 60, 10, 140, scorer,
-                               mutator_composite, gen, 99, 1000000, true);
+                               mutator_composite, gen, 200, 1000000, true);
   evolver.Run();
 
   return 0;

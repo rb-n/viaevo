@@ -18,7 +18,7 @@ int main() {
   // std::string filename =
   //     "examples/100_mnist_digits/evolved_elfs/v5_gen_7152_best_program.elf";
   std::string filename =
-      "examples/100_mnist_digits/evolved_elfs/v8_gen_8341_best_program.elf";
+      "examples/100_mnist_digits/evolved_elfs/v9_gen_254_best_program.elf";
 
   // Consistently over 10% success rate (?).
   // std::string filename =

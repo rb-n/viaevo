@@ -28,22 +28,21 @@ long long ScorerMnistDigits::Score(const Program &program) const {
   // Return maximum score if results[1] == expected_value_;
   if (results[1] == expected_value_)
     return 1'000'000'000;
+  // "Reward" result[1] being in the correct range.
+  if (results[1] >= 0 && results[1] <= 9)
+    return 1'000'000;
 
   // results[0] is disregarded as it is changed in main of //elfs:simple_small
   // to 20.
 
   // Assuming results[1..10] are initialized to -1;
 
-  // Score if any of results different from -1;
-  // Score more if any of results between 0 and 9;
-  // Score even more if any of the results equals expected_value;
+  // Score if any of results different from -1. It is assumed that this is
+  // better than no change (the program evolved to at least change the values in
+  // results).
   for (int i = 1; i <= 10; ++i) {
     if (results[i] != -1)
       score += 1;
-    if (results[i] >= 0 && results[i] <= 9)
-      score += 1'000;
-    if (results[i] == expected_value_)
-      score += 1'000'000;
   }
 
   return score;

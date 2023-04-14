@@ -149,11 +149,11 @@ TEST(ScorerMnistDigitsTest, Score) {
 
   results[5] = 4;
   program.set_last_results(results);
-  EXPECT_EQ(scorer.Score(program), 1'001);
+  EXPECT_EQ(scorer.Score(program), 1);
 
   results[5] = 5;
   program.set_last_results(results);
-  EXPECT_EQ(scorer.Score(program), 1'001'001);
+  EXPECT_EQ(scorer.Score(program), 1);
 
   results[1] = 5;
   program.set_last_results(results);
@@ -161,11 +161,11 @@ TEST(ScorerMnistDigitsTest, Score) {
 
   results[1] = 4;
   program.set_last_results(results);
-  EXPECT_EQ(scorer.Score(program), 1'002'002);
+  EXPECT_EQ(scorer.Score(program), 1'000'000);
 
   scorer.ResetInputs();
   EXPECT_EQ(scorer.expected_value(), 1);
-  EXPECT_EQ(scorer.Score(program), 2'002);
+  EXPECT_EQ(scorer.Score(program), 1'000'000);
 }
 
 TEST(ScorerMnistDigitsTest, ScoreResultsHistory) {
