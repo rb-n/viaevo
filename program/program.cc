@@ -331,16 +331,24 @@ int Program::MonitorElfProcess(pid_t elf_pid, int max_ptrace_stops) {
       if (ptrace(PTRACE_GETREGS, elf_pid, 0, &regs) == -1) {
         // myfail("PTRACE_GETREGS failed");
         // This call sometimes fails with "No such process". These failures seem
-        // random and not clear at this point what is the cause. Instead of
-        // failing here, will retry one more time, print error messages and just
-        // return.
+        // random and not clear at this point what is the cause. These failures
+        // seem to be prevented by adding a sleep after the if block with the
+        // call to kill further below. The last_*_ member variables are set
+        // (with the exception of last_term_signal_ and last_exit_status_). This
+        // means ReadLastResultsAndLastRipOffsetFromElfProcess was called. Retry
+        // ptrace call does not seem to help (as the process seems to be gone).
+        // The failure seems innocent, so let's ignore it and just return
+        // ptrace_stops_count.
         // TODO: Find/fix the root cause, also check for resource leaks.
         printf("\n");
-        perror("PTRACE_GETREGS failed");
-        if (ptrace(PTRACE_GETREGS, elf_pid, 0, &regs) == -1) {
-          perror("PTRACE_GETREGS retry failed (ignoring..)");
-          return -1;
-        }
+        perror("PTRACE_GETREGS failed (ignoring)");
+        // printf("last_stop_signal_: %d, last_term_signal_: %d,
+        // last_rip_offset: "
+        //        "%lld, last_exit_status_: %d, last_results_[0]: %d, "
+        //        "ptrace_stops_count: %d\n",
+        //        last_stop_signal_, last_term_signal_, last_rip_offset_,
+        //        last_exit_status_, last_results_[0], ptrace_stops_count);
+        return ptrace_stops_count;
       }
 
       last_syscall_ = regs.orig_rax;
