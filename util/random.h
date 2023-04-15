@@ -17,9 +17,11 @@ class Random {
 public:
   Random();
   virtual ~Random() = default;
-  
+
   void Seed(mt_type::result_type value);
   virtual mt_type::result_type operator()();
+
+  mt_type &gen() { return gen_; }
 
   template <class CharT, class Traits>
   friend std::basic_ostream<CharT, Traits> &

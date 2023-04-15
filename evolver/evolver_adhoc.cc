@@ -41,16 +41,14 @@ EvolverAdHoc::EvolverAdHoc(std::string elf_filename, int mu, int phi,
 void EvolverAdHoc::SelectParents() {
   // Shuffle programs_ to prevent breaking ties the same way in each
   // generation.
-  // TODO: Provide own random number generator.
-  std::random_shuffle(programs_.begin(), programs_.end());
+  std::shuffle(programs_.begin(), programs_.end(), gen_.gen());
   // Bring the (mu_ - phi_) parents (selected on score) to the "front" of
   // programs_.
   std::nth_element(programs_.begin(), programs_.begin() + (mu_ - phi_) - 1,
                    programs_.end(), ProgramCompare());
   // Shuffle the elements after (mu_ - phi_) to obtain the remaining phi_
   // parents at random.
-  // TODO: Provide own random number generator.
-  std::random_shuffle(programs_.begin() + (mu_ - phi_), programs_.end());
+  std::shuffle(programs_.begin() + (mu_ - phi_), programs_.end(), gen_.gen());
 }
 
 // TODO: Put the three stages in individual member functions and add unit
