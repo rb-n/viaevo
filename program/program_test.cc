@@ -87,6 +87,84 @@ TEST(ProgramTest, CreateExecuteSimpleSmall) {
          "to 'default' Execute.";
 }
 
+TEST(ProgramTest, CreateExecuteSimpleMedium) {
+  std::shared_ptr<viaevo::Program> program =
+      viaevo::Program::Create("elfs/simple_medium");
+
+  std::vector<int> default_results{-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
+  std::vector<int> changed_results = default_results;
+  // results[0] is changed in main() of //elfs:simple_small from 10 to 20.
+  changed_results[0] = 20;
+
+  EXPECT_EQ(program->last_syscall(), 9999)
+      << "Last syscall not initialized correctly";
+  EXPECT_EQ(program->last_rip_offset(), -1)
+      << "Last rip offset not initialized correctly";
+  EXPECT_EQ(program->last_exit_status(), -9999)
+      << "Last exit status not initialized correctly";
+  EXPECT_EQ(program->last_term_signal(), -1)
+      << "Last term signal not initialized correctly";
+  EXPECT_EQ(program->last_stop_signal(), -1)
+      << "Last stop signal not initialized correctly";
+  EXPECT_TRUE(program->last_results().empty())
+      << "last_results not empty before first Execute";
+
+  // Execute the elf, should be terminated when 'attempting' exit.
+  int ptrace_stops_count_default = program->Execute();
+  EXPECT_EQ(program->last_syscall(), 231)
+      << "Last syscall should not be exit for 'default' Execute (#1)";
+  EXPECT_NE(program->last_rip_offset(), -1)
+      << "Last rip offset should not be -1 for 'default' Execute (#1)";
+  EXPECT_EQ(program->last_exit_status(), -9999)
+      << "Last exit status should be invalid for 'default' Execute (#1)";
+  EXPECT_EQ(program->last_term_signal(), 9)
+      << "Last term signal should be 9 (SIGKILL) for 'default' Execute (#1)";
+  EXPECT_EQ(program->last_stop_signal(), 5)
+      << "Last stop signal should be 5 (SIGTRAP) for 'default' Execute (#1)";
+  // main() in //elfs:simple_small executes therefore the value of results[0] is
+  // changed to 20.
+  EXPECT_EQ(program->last_results(), changed_results)
+      << "Unexpected last results after a 'default' Execute (#1)";
+
+  // Terminate the elf process before entering main (small max_ptrace_stops
+  // passed to Execute).
+  EXPECT_EQ(program->Execute(5), 5)
+      << "observed ptrace stops different from max (#2)";
+  EXPECT_NE(program->last_syscall(), 231)
+      << "last_syscall should not be exit for 'short' Execute (#2)";
+  EXPECT_NE(program->last_rip_offset(), -1)
+      << "Last rip offset should not be -1 for 'short' Execute (#2)";
+  EXPECT_EQ(program->last_exit_status(), -9999)
+      << "Last exit status should be invalid for 'short' Execute (#2)";
+  EXPECT_EQ(program->last_term_signal(), 9)
+      << "Last term signal should be 9 (SIGKILL) for 'short' Execute (#2)";
+  EXPECT_EQ(program->last_stop_signal(), 5)
+      << "Last stop signal should be 5 (SIGTRAP) for 'short' Execute (#2)";
+  // main() in //elfs:simple_small does not execute therefore the value of
+  // results[0] remains 10.
+  EXPECT_EQ(program->last_results(), default_results)
+      << "Unexpected last results after a 'short' Execute (#2)";
+
+  // Run the elf to completion (large max_ptrace_stops passed to Execute).
+  int ptrace_stops_count_full = program->Execute(999'999);
+  EXPECT_GT(ptrace_stops_count_full, 0)
+      << "Too few ptrace stops for 'full' Execute (#3)";
+  EXPECT_EQ(program->last_syscall(), 231)
+      << "last_syscall should be exit for 'full' Execute (#3)";
+  EXPECT_EQ(program->last_exit_status(), 0)
+      << "Last exit status should be 0 for 'full' Execute (#3)";
+  EXPECT_EQ(program->last_term_signal(), -1)
+      << "Last term signal should be -1 (not set) for 'full' Execute (#3)";
+  EXPECT_EQ(program->last_stop_signal(), 5)
+      << "Last stop signal should be 5 (SIGTRAP) for 'full' Execute (#3)";
+  EXPECT_TRUE(program->last_results().empty())
+      << "Last results should be empty after 'full' Execute (#3)";
+
+  EXPECT_EQ(ptrace_stops_count_full, ptrace_stops_count_default)
+      << "'Full' Execute should have the same amount of ptrace stops compared "
+         "to 'default' Execute.";
+}
+
 TEST(ProgramTest, CreateExecuteIntermediateSmall) {
   std::shared_ptr<viaevo::Program> program =
       viaevo::Program::Create("elfs/intermediate_small");
@@ -273,6 +351,35 @@ TEST(ProgramTest, GetSetElfCodeSimpleSmall) {
   // printf("\n");
 }
 
+TEST(ProgramTest, GetSetElfCodeSimpleMedium) {
+  std::shared_ptr<viaevo::Program> program =
+      viaevo::Program::Create("elfs/simple_medium");
+
+  std::vector<char> elf_code = program->GetElfCode();
+  EXPECT_FALSE(elf_code.empty());
+
+  std::vector<char> nops(elf_code.size(), 0x90);
+  program->SetElfCode(nops);
+  EXPECT_EQ(program->GetElfCode(), nops);
+
+  // Setting with a vector of a smaller size (10) than the code in the ELF.
+  std::vector<char> nops_10(10, 0x90);
+  EXPECT_DEATH(program->SetElfCode(nops_10),
+               "elf code to set has incorrect size");
+
+  // Setting with a vector of a larger size (10k) than the code in the ELF.
+  std::vector<char> nops_10k(10'000, 0x90);
+  EXPECT_DEATH(program->SetElfCode(nops_10k),
+               "elf code to set has incorrect size");
+
+  // for (int i = 0; i < (int)elf_code.size(); ++i) {
+  //   if (i % 16 == 0)
+  //     printf("\n");
+  //   printf("%3x", (unsigned char)elf_code[i]);
+  // }
+  // printf("\n");
+}
+
 TEST(ProgramTest, GetSetElfCodeIntermediateSmall) {
   std::shared_ptr<viaevo::Program> program =
       viaevo::Program::Create("elfs/intermediate_small");
@@ -360,6 +467,38 @@ TEST(ProgramTest, GetSetElfInputsSimpleSmall) {
   // Setting with a vector of a larger size (200) than inputs in the ELF.
   std::vector<int> zeros_200(200, 0);
   EXPECT_DEATH(program->SetElfInputs(zeros_200),
+               "elf inputs to set are too large");
+}
+
+TEST(ProgramTest, GetSetElfInputsSimpleMedium) {
+  std::shared_ptr<viaevo::Program> program =
+      viaevo::Program::Create("elfs/simple_medium");
+
+  std::vector<int> elf_inputs = program->GetElfInputs();
+  EXPECT_EQ(elf_inputs.size(), 201);
+  EXPECT_EQ(elf_inputs[100], 17);
+  elf_inputs.resize(5);
+  std::vector<int> expected{200, 42, 17, 42, 17};
+  EXPECT_EQ(elf_inputs, expected);
+
+  // Setting with a vector of a smaller size (3) than inputs in the ELF.
+  std::vector<int> short_vector{7, 7, 7};
+  program->SetElfInputs(short_vector);
+  elf_inputs = program->GetElfInputs();
+  EXPECT_EQ(elf_inputs.size(), 201);
+  EXPECT_EQ(elf_inputs[100], 17);
+  elf_inputs.resize(5);
+  expected = {7, 7, 7, 42, 17};
+  EXPECT_EQ(elf_inputs, expected);
+
+  // Setting with a vector of a matching size to inputs in the ELF.
+  std::vector<int> zeros_201(201, 0);
+  program->SetElfInputs(zeros_201);
+  EXPECT_EQ(program->GetElfInputs(), zeros_201);
+
+  // Setting with a vector of a larger size (200) than inputs in the ELF.
+  std::vector<int> zeros_2000(2000, 0);
+  EXPECT_DEATH(program->SetElfInputs(zeros_2000),
                "elf inputs to set are too large");
 }
 

@@ -20,6 +20,7 @@ cc_test(
   data=[
     "//elfs:inf_loop",
     "//elfs:simple_small",
+    "//elfs:simple_medium",
     "//elfs:intermediate_medium",
     "//elfs:intermediate_small",
   ],

@@ -17,6 +17,24 @@ sh_test(
 )
 
 cc_binary(
+  name = "simple_medium",
+  srcs = ["simple_medium.c"],
+  visibility=[
+    "//program:__pkg__",
+    "//mutator:__pkg__",
+    "//examples:__subpackages__",
+    "//evolver:__pkg__",
+  ],
+)
+
+sh_test(
+  name = "simple_medium_test",
+  size = "small",
+  srcs = ["simple_medium_test.sh"],
+  data = [":simple_medium"],
+)
+
+cc_binary(
   name = "intermediate_small",
   srcs = ["intermediate_small.c"],
   visibility=[
