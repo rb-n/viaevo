@@ -566,6 +566,11 @@ void Program::SetElfCode(const std::vector<char> &elf_code) {
     myfail("setting elf code failed");
 }
 
+void Program::SetElfCodeToAllNops() {
+  std::vector<char> new_elf_code(symbol_data_.main_st_size_, 0x90);
+  SetElfCode(new_elf_code);
+}
+
 std::vector<int> Program::GetElfInputs() const {
   if (symbol_data_.inputs_offset_in_elf_ == (Elf64_Addr)-1)
     myfail("location to get inputs unknown");

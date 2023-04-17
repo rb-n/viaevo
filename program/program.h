@@ -49,6 +49,9 @@ public:
   std::vector<char> GetElfCode() const;
   // Size of elf_code must match the size of the ELF's evolvable code (main).
   void SetElfCode(const std::vector<char> &elf_code);
+  // Replace all instruction in ELF's evolvable code (main) with nop
+  // instructions.
+  void SetElfCodeToAllNops();
 
   // Get and set the ELF's inputs variable.
   std::vector<int> GetElfInputs() const;

@@ -34,7 +34,7 @@ TEST(ProgramTest, CreateExecuteSimpleSmall) {
   // Execute the elf, should be terminated when 'attempting' exit.
   int ptrace_stops_count_default = program->Execute();
   EXPECT_EQ(program->last_syscall(), 231)
-      << "Last syscall should not be exit for 'default' Execute (#1)";
+      << "Last syscall should be exit for 'default' Execute (#1)";
   EXPECT_NE(program->last_rip_offset(), -1)
       << "Last rip offset should not be -1 for 'default' Execute (#1)";
   EXPECT_EQ(program->last_exit_status(), -9999)
@@ -112,7 +112,7 @@ TEST(ProgramTest, CreateExecuteSimpleMedium) {
   // Execute the elf, should be terminated when 'attempting' exit.
   int ptrace_stops_count_default = program->Execute();
   EXPECT_EQ(program->last_syscall(), 231)
-      << "Last syscall should not be exit for 'default' Execute (#1)";
+      << "Last syscall should be exit for 'default' Execute (#1)";
   EXPECT_NE(program->last_rip_offset(), -1)
       << "Last rip offset should not be -1 for 'default' Execute (#1)";
   EXPECT_EQ(program->last_exit_status(), -9999)
@@ -190,7 +190,7 @@ TEST(ProgramTest, CreateExecuteIntermediateSmall) {
   // Execute the elf, should be terminated when 'attempting' exit.
   int ptrace_stops_count_default = program->Execute();
   EXPECT_EQ(program->last_syscall(), 231)
-      << "Last syscall should not be exit for 'default' Execute (#1)";
+      << "Last syscall should be exit for 'default' Execute (#1)";
   EXPECT_NE(program->last_rip_offset(), -1)
       << "Last rip offset should not be -1 for 'default' Execute (#1)";
   EXPECT_EQ(program->last_exit_status(), -9999)
@@ -269,7 +269,7 @@ TEST(ProgramTest, CreateExecuteIntermediateMedium) {
   // Execute the elf, should be terminated when 'attempting' exit.
   int ptrace_stops_count_default = program->Execute();
   EXPECT_EQ(program->last_syscall(), 231)
-      << "Last syscall should not be exit for 'default' Execute (#1)";
+      << "Last syscall should be exit for 'default' Execute (#1)";
   EXPECT_NE(program->last_rip_offset(), -1)
       << "Last rip offset should not be -1 for 'default' Execute (#1)";
   EXPECT_EQ(program->last_exit_status(), -9999)
@@ -438,6 +438,62 @@ TEST(ProgramTest, GetSetElfCodeIntermediateMedium) {
   // printf("\n");
 }
 
+TEST(ProgramTest, SetElfCodeToAllNopsSimpleSmall) {
+  std::shared_ptr<viaevo::Program> program =
+      viaevo::Program::Create("elfs/simple_small");
+
+  std::vector<int> default_results{10, 0, 0, 0, 0, 0, 3, 3, 3, 3, 3};
+  std::vector<int> changed_results = default_results;
+  // results[0] is changed in main() of //elfs:simple_small from 10 to 20.
+  changed_results[0] = 20;
+
+  // Execute the elf, should be terminated when 'attempting' exit.
+  int ptrace_stops_count_default = program->Execute();
+  EXPECT_EQ(program->last_syscall(), 231)
+      << "Last syscall should be exit for 'default' Execute (#1)";
+  EXPECT_NE(program->last_rip_offset(), -1)
+      << "Last rip offset should not be -1 for 'default' Execute (#1)";
+  EXPECT_EQ(program->last_exit_status(), -9999)
+      << "Last exit status should be invalid for 'default' Execute (#1)";
+  EXPECT_EQ(program->last_term_signal(), 9)
+      << "Last term signal should be 9 (SIGKILL) for 'default' Execute (#1)";
+  EXPECT_EQ(program->last_stop_signal(), 5)
+      << "Last stop signal should be 5 (SIGTRAP) for 'default' Execute (#1)";
+  // main() in //elfs:simple_small executes therefore the value of results[0] is
+  // changed to 20.
+  EXPECT_EQ(program->last_results(), changed_results)
+      << "Unexpected last results after a 'default' Execute (#1)";
+
+  std::vector<char> elf_code = program->GetElfCode();
+  EXPECT_FALSE(elf_code.empty());
+
+  std::vector<char> nops(elf_code.size(), 0x90);
+
+  program->SetElfCodeToAllNops();
+  EXPECT_EQ(program->GetElfCode(), nops);
+
+  int ptrace_stops_count_all_nops = program->Execute();
+  EXPECT_NE(program->last_syscall(), 231)
+      << "Last syscall should not be exit for 'default' Execute (#2)";
+  EXPECT_NE(program->last_rip_offset(), -1)
+      << "Last rip offset should not be -1 for 'default' Execute (#2)";
+  EXPECT_EQ(program->last_exit_status(), -9999)
+      << "Last exit status should be invalid for 'default' Execute (#2)";
+  EXPECT_EQ(program->last_term_signal(), 9)
+      << "Last term signal should be 9 (SIGKILL) for 'default' Execute (#2)";
+  EXPECT_NE(program->last_stop_signal(), 5)
+      << "Last stop signal should not be 5 (SIGTRAP) for 'default' Execute "
+         "(#2)";
+  // main() change to all nops in //elfs:simple_small, therefore the value of
+  // results[0] is _not_ changed to 20. Expecting default results here.
+  EXPECT_EQ(program->last_results(), default_results)
+      << "Unexpected last results after a 'default' Execute (#2)";
+
+  EXPECT_EQ(ptrace_stops_count_default, ptrace_stops_count_all_nops)
+      << "Default execute should have the same number of ptrace stops as "
+         "execute after changing all instructions to nops.";
+}
+
 TEST(ProgramTest, GetSetElfInputsSimpleSmall) {
   std::shared_ptr<viaevo::Program> program =
       viaevo::Program::Create("elfs/simple_small");
@@ -589,6 +645,11 @@ TEST(ProgramTest, LastRipOffset) {
 
   std::vector<char> elf_code = program->GetElfCode();
 
+  // Change all instructions to nops so to make sure the illegal instruction
+  // below replaces a nop instruction and indeed causes an illegal instruction
+  // (and does not land in the middle of a different instruction instead).
+  program->SetElfCodeToAllNops();
+
   int nop_position = 23;
   EXPECT_EQ(elf_code[nop_position], '\x90')
       << "Instruction at offset " << nop_position
@@ -739,8 +800,7 @@ TEST(ProgramTest, CreateExecuteInfLoop) {
   EXPECT_TRUE(program->last_results().empty())
       << "last_results not empty before first Execute";
 
-  // Execute the elf, should be terminated when 'attempting' exit.
-  int ptrace_stops_count_default = program->Execute();
+  program->Execute();
   EXPECT_NE(program->last_syscall(), 231)
       << "Last syscall should not be exit for 'default' Execute (#1)";
   EXPECT_NE(program->last_rip_offset(), -1)
