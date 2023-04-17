@@ -33,6 +33,7 @@ cc_binary(
   ],
   data=[
     ":train_data",
+    "//elfs:simple_medium",
     "//elfs:intermediate_medium",
   ],
 )

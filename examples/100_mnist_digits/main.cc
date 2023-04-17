@@ -18,6 +18,8 @@ int main() {
   viaevo::Random gen;
   gen.Seed(1);
 
+  std::string elf_filename("elfs/simple_medium");
+
   std::shared_ptr<viaevo::MutatorPointRandom> mutator_point =
       std::make_shared<viaevo::MutatorPointRandom>(gen);
   std::shared_ptr<viaevo::MutatorRecombineRandom> mutator_recombine =
@@ -25,7 +27,7 @@ int main() {
   std::shared_ptr<viaevo::MutatorRecombinePlainElf>
       mutator_recombine_plain_elf =
           std::make_shared<viaevo::MutatorRecombinePlainElf>(
-              gen, "elfs/intermediate_medium");
+              gen, elf_filename);
   std::shared_ptr<viaevo::MutatorPointLastInstruction>
       mutator_last_instruction =
           std::make_shared<viaevo::MutatorPointLastInstruction>(gen);
@@ -45,7 +47,7 @@ int main() {
       gen, "examples/100_mnist_digits/data/train-images-idx3-ubyte",
       "examples/100_mnist_digits/data/train-labels-idx1-ubyte");
 
-  viaevo::EvolverAdHoc evolver("elfs/intermediate_medium", 60, 10, 140, scorer,
+  viaevo::EvolverAdHoc evolver(elf_filename, 60, 10, 140, scorer,
                                mutator_composite, gen, 200, 1000000, true);
   evolver.Run();
 

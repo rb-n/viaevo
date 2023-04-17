@@ -118,7 +118,7 @@ void EvolverAdHoc::Run() {
         top_rip_offset = rip_offset;
       }
     }
-    std::cout << "\rG: " << std::setw(8) << current_generation_
+    std::cout << "\33[2K\rG: " << std::setw(8) << current_generation_
               << " | best score: " << best_generation_score << " (overall: "
               << std::max(best_overall_score, best_generation_score) << "/"
               << max_score << ") "
@@ -127,12 +127,13 @@ void EvolverAdHoc::Run() {
               << " count: " << top_rip_offset_count << std::flush;
     if (best_overall_score < best_generation_score) {
       best_overall_score = best_generation_score;
-      std::cout << "\n            | best results: ";
+      std::cout << "\n            | best last results: ";
       for (auto itm : best_generation_results)
         std::cout << itm << " ";
       std::cout << "\n";
-      std::string filename =
-          "v9_gen_" + std::to_string(current_generation_) + "_best_program.elf";
+      std::string filename = "v10_simple_medium_gen_" +
+                             std::to_string(current_generation_) +
+                             "_best_program.elf";
       programs_[best_generation_program_index]->SaveElf(filename.c_str());
     }
     if (best_overall_score == max_score) {
