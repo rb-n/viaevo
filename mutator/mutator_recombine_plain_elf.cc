@@ -10,9 +10,13 @@
 
 namespace viaevo {
 
-MutatorRecombinePlainElf::MutatorRecombinePlainElf(Random &gen,
-                                                   std::string elf_filename)
-    : gen_(gen), standard_program_(Program::Create(elf_filename)) {}
+MutatorRecombinePlainElf::MutatorRecombinePlainElf(
+    Random &gen, std::string elf_filename, bool initialize_program_to_all_nops)
+    : gen_(gen), standard_program_(Program::Create(elf_filename)) {
+  if (initialize_program_to_all_nops) {
+    standard_program_->SetElfCodeToAllNops();
+  }
+}
 
 void MutatorRecombinePlainElf::Mutate(std::shared_ptr<Program> target,
                                       std::shared_ptr<Program> parent1,

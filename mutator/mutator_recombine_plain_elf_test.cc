@@ -5,8 +5,10 @@
 
 #include "mutator_recombine_plain_elf.h"
 
-#include <gtest/gtest.h>
+#include <algorithm>
 #include <random>
+
+#include <gtest/gtest.h>
 
 // TODO: Remove relative path.
 #include "../util/random_mock.h"
@@ -39,6 +41,10 @@ TEST(MutatorRecombinePlainElfTest, Mutate) {
   std::vector<char> old_parent1_code = parent1->GetElfCode();
   std::vector<char> old_standard_elf_code =
       mutator.standard_program()->GetElfCode();
+
+  EXPECT_FALSE(std::all_of(old_standard_elf_code.begin(),
+                           old_standard_elf_code.end(),
+                           [](char value) { return value == '\x90'; }));
 
   mutator.Mutate(target, parent1, parent2);
 
@@ -83,6 +89,17 @@ TEST(MutatorRecombinePlainElfTest, Mutate) {
   EXPECT_EQ(gen(), 10'000'000);
 
   mutator.Mutate(target, parent1, parent2);
+}
+
+TEST(MutatorRecombinePlainElfTest, InitializeProgramToAllNops) {
+  viaevo::RandomMock gen({0});
+
+  viaevo::MutatorRecombinePlainElf mutator(gen, "elfs/simple_small", true);
+
+  std::vector<char> code = mutator.standard_program()->GetElfCode();
+  EXPECT_TRUE(code.size() > 0);
+  EXPECT_TRUE(std::all_of(code.begin(), code.end(),
+                          [](char value) { return value == '\x90'; }));
 }
 
 } // namespace

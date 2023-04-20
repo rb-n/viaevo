@@ -56,6 +56,9 @@ ABSL_FLAG(uint32_t, random_seed, 1,
           "random seed for the evolution (NOTE: evolutions with the same "
           "random seed may diverge if the evolved programs compute results "
           "non-deterministically)");
+ABSL_FLAG(bool, initialize_programs_to_all_nops, false,
+          "set all instructions in the evolvable code of the template ELF "
+          "executable to nop prior to starting the evolution");
 
 int main(int argc, char **argv) {
   absl::SetProgramUsageMessage(
@@ -79,6 +82,8 @@ int main(int argc, char **argv) {
   std::string output_filename_prefix =
       absl::GetFlag(FLAGS_output_filename_prefix);
   unsigned int random_seed = absl::GetFlag(FLAGS_random_seed);
+  bool initialize_programs_to_all_nops =
+      absl::GetFlag(FLAGS_initialize_programs_to_all_nops);
 
   std::cout << "# value_to_guess: " << value_to_guess << "\n";
   std::cout << "# elf_filename: " << elf_filename << "\n";
@@ -91,6 +96,8 @@ int main(int argc, char **argv) {
             << score_results_history << "\n";
   std::cout << "# output_filename_prefix: " << output_filename_prefix << "\n";
   std::cout << "# random_seed: " << random_seed << "\n";
+  std::cout << "# initialize_programs_to_all_nops: " << std::boolalpha
+            << initialize_programs_to_all_nops << "\n";
 
   viaevo::Random gen;
   gen.Seed(random_seed);
@@ -113,10 +120,10 @@ int main(int argc, char **argv) {
   // viaevo::ScorerGuessValue scorer(63'451'913);
   viaevo::ScorerGuessValue scorer(value_to_guess);
 
-  viaevo::EvolverAdHoc evolver(elf_filename, mu, phi, lambda, scorer,
-                               mutator_composite, gen, evaluations_per_program,
-                               max_generations, score_results_history,
-                               output_filename_prefix);
+  viaevo::EvolverAdHoc evolver(
+      elf_filename, mu, phi, lambda, scorer, mutator_composite, gen,
+      evaluations_per_program, max_generations, score_results_history,
+      output_filename_prefix, initialize_programs_to_all_nops);
   evolver.Run();
 
   return 0;

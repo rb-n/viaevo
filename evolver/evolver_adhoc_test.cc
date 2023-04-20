@@ -5,6 +5,8 @@
 
 #include "evolver_adhoc.h"
 
+#include <algorithm>
+
 #include <gtest/gtest.h>
 
 // TODO: Remove relative path.
@@ -31,6 +33,14 @@ TEST(EvolverAdHocTest, RunSelectParents) {
       << "score_results_history_ should be false in Evolver by default.";
 
   auto &programs = evolver.programs();
+
+  for (int i = 0; i < 3; ++i) {
+    std::vector<char> code = programs[i]->GetElfCode();
+    EXPECT_TRUE(code.size() > 0);
+    // Code should not be all nop by default.
+    EXPECT_FALSE(std::all_of(code.begin(), code.end(),
+                             [](char value) { return value == '\x90'; }));
+  }
 
   EXPECT_EQ(programs[0]->track_results_history(), false);
 
@@ -112,6 +122,29 @@ TEST(EvolverAdHocTest, ScoreResultsHistory) {
       << "Program's results history should be of size two after three "
          "generations of two evaluation per generation - results from the two "
          "evaluation from the last generation only.";
+}
+
+TEST(EvolverAdHocTest, InitializeProgramsToAllNops) {
+  viaevo::RandomMock gen({7, 17});
+
+  viaevo::MutatorPointRandom mutator(gen);
+
+  // results_history_scores_ should be ignored by the evolver by default.
+  viaevo::ScorerMock scorer({0, 0, 5}, 10, {}, {0, 1, 2});
+  std::vector<int> results;
+
+  viaevo::EvolverAdHoc evolver("elfs/simple_small", 2, 1, 1, scorer, mutator,
+                               gen, 1, 1, false, "", true);
+
+  auto &programs = evolver.programs();
+
+  for (int i = 0; i < 3; ++i) {
+    std::vector<char> code = programs[i]->GetElfCode();
+    EXPECT_TRUE(code.size() > 0);
+    // Code expected to be all nop here.
+    EXPECT_TRUE(std::all_of(code.begin(), code.end(),
+                            [](char value) { return value == '\x90'; }));
+  }
 }
 
 } // namespace

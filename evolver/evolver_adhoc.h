@@ -30,7 +30,8 @@ public:
                Scorer &scorer, Mutator &mutator, Random &gen,
                int evaluations_per_program, int max_generations,
                bool score_results_history = false,
-               std::string output_filename_prefix = "");
+               std::string output_filename_prefix = "",
+               bool initialize_programs_to_all_nops = false);
   // Selects mu_ parents by bringing them to the front of programs_.
   virtual void SelectParents();
   // Runs the evolution.

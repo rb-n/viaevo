@@ -28,7 +28,9 @@ namespace viaevo {
 // reintroduce valid instructions into these programs.
 class MutatorRecombinePlainElf : public Mutator {
 public:
-  explicit MutatorRecombinePlainElf(Random &gen, std::string elf_filename);
+  explicit MutatorRecombinePlainElf(
+      Random &gen, std::string elf_filename,
+      bool initialize_program_to_all_nops = false);
   // Creates new code for target based on the description above.
   virtual void Mutate(std::shared_ptr<Program> target,
                       std::shared_ptr<Program> parent1,

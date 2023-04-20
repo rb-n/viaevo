@@ -27,7 +27,8 @@ EvolverAdHoc::EvolverAdHoc(std::string elf_filename, int mu, int phi,
                            int lambda, Scorer &scorer, Mutator &mutator,
                            Random &gen, int evaluations_per_program,
                            int max_generations, bool score_results_history,
-                           std::string output_filename_prefix)
+                           std::string output_filename_prefix,
+                           bool initialize_programs_to_all_nops)
     : mu_(mu), phi_(phi), lambda_(lambda), scorer_(scorer), mutator_(mutator),
       gen_(gen), evaluations_per_program_(evaluations_per_program),
       max_generations_(max_generations),
@@ -36,6 +37,9 @@ EvolverAdHoc::EvolverAdHoc(std::string elf_filename, int mu, int phi,
   for (int i = 0; i < mu_ + lambda_; ++i) {
     auto program = Program::Create(elf_filename);
     program->set_track_results_history(score_results_history);
+    if(initialize_programs_to_all_nops) {
+      program->SetElfCodeToAllNops();
+    }
     programs_.push_back(program);
   }
 }
