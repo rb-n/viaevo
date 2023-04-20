@@ -29,3 +29,19 @@ cc_binary(
   ],
   data=["//elfs:simple_small"],
 )
+
+filegroup(
+  name="evolved_elfs",
+  srcs=glob(["evolved_elfs/*.elf"]),
+)
+
+cc_binary(
+  name="validate",
+  srcs=["validate.cc"],
+  deps=[
+    ":scorer_guess_value",
+    "@com_google_absl//absl/flags:flag",
+    "@com_google_absl//absl/flags:parse",
+  ],
+  data=[":evolved_elfs"],
+)

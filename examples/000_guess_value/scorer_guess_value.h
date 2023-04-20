@@ -28,6 +28,8 @@ public:
   // Does nothing for this scorer.
   virtual void ResetInputs() override;
 
+  int value() { return value_; }
+
 protected:
   // Value to guess. Value MAY NOT be 0 for the scorer to work correctly.
   int value_ = 0;
