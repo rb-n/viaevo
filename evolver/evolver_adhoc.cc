@@ -26,11 +26,13 @@ public:
 EvolverAdHoc::EvolverAdHoc(std::string elf_filename, int mu, int phi,
                            int lambda, Scorer &scorer, Mutator &mutator,
                            Random &gen, int evaluations_per_program,
-                           int max_generations, bool score_results_history)
+                           int max_generations, bool score_results_history,
+                           std::string output_filename_prefix)
     : mu_(mu), phi_(phi), lambda_(lambda), scorer_(scorer), mutator_(mutator),
       gen_(gen), evaluations_per_program_(evaluations_per_program),
       max_generations_(max_generations),
-      score_results_history_(score_results_history) {
+      score_results_history_(score_results_history),
+      output_filename_prefix_(output_filename_prefix) {
   for (int i = 0; i < mu_ + lambda_; ++i) {
     auto program = Program::Create(elf_filename);
     program->set_track_results_history(score_results_history);
@@ -131,17 +133,19 @@ void EvolverAdHoc::Run() {
       for (auto itm : best_generation_results)
         std::cout << itm << " ";
       std::cout << "\n";
-      std::string filename = "v10_simple_medium_gen_" +
+      std::string filename = output_filename_prefix_ + "gen_" +
                              std::to_string(current_generation_) +
                              "_best_program.elf";
       programs_[best_generation_program_index]->SaveElf(filename.c_str());
     }
     if (best_overall_score == max_score) {
       std::cout << "DONE! :)\n";
-      programs_[best_generation_program_index]->SaveElf("best_program.elf");
+      std::string best_filename = output_filename_prefix_ + "best_program.elf";
+      programs_[best_generation_program_index]->SaveElf(best_filename.c_str());
       break;
     }
   }
+  std::cout << "\n";
 }
 
 } // namespace viaevo

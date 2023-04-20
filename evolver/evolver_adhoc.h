@@ -29,7 +29,8 @@ public:
   EvolverAdHoc(std::string elf_filename, int mu, int phi, int lambda,
                Scorer &scorer, Mutator &mutator, Random &gen,
                int evaluations_per_program, int max_generations,
-               bool score_results_history = false);
+               bool score_results_history = false,
+               std::string output_filename_prefix = "");
   // Selects mu_ parents by bringing them to the front of programs_.
   virtual void SelectParents();
   // Runs the evolution.
@@ -70,6 +71,9 @@ protected:
   // When set to true, score Programs also on their results_history_ after all
   // evaluations in a generation are completed.
   bool score_results_history_ = false;
+
+  // Prefix to prepend to output file names (e.g. for saved evolved elfs).
+  std::string output_filename_prefix_;
 };
 
 } // namespace viaevo
