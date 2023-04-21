@@ -61,6 +61,8 @@ long long ScorerCopyValue::Score(const Program &program) const {
   // higher than the maximum possible score from the path above. The assumption
   // is that changing results[1] alone is better that changing any other (or
   // all other) elements in results.
+  // TODO: Maybe still want to score if current_inputs_[0] is copied to
+  // results[1] and not disregard it in this case?
   score += 20;
 
   // Increment the score for each correctly set bit in results[1].

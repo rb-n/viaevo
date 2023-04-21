@@ -28,6 +28,8 @@ cc_binary(
     "//mutator:mutator_point_random",
     "//mutator:mutator_recombine_random",
     "//mutator:mutator_composite_random",
+    "@com_google_absl//absl/flags:flag",
+    "@com_google_absl//absl/flags:parse",
   ],
   data=["//elfs:simple_small"],
 )
