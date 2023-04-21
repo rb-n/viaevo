@@ -15,7 +15,8 @@
 ABSL_FLAG(int32_t, value_to_guess, 42,
           "the correct value expected in the results[1] global variable after "
           "the execution of the evolved program");
-ABSL_FLAG(std::string, elf_filename, "examples/000_guess_value/evolved_elfs/best_program.elf",
+ABSL_FLAG(std::string, elf_filename,
+          "examples/000_guess_value/evolved_elfs/best_program.elf",
           "filename of the evolved ELF program to validate");
 // Each evaluation is expected to produce the same value in results[1]. Multiple
 // evaluations per program help evaluate if the evolved program is
@@ -48,6 +49,10 @@ int main(int argc, char **argv) {
 
   viaevo::ScorerGuessValue scorer(value_to_guess);
 
+  std::cout << std::setw(16) << "expected" << std::setw(11) << "result[1]"
+            << " | " << std::setw(5)
+            << "score | results                   | signals\n";
+
   int correct = 0, total = 0;
   for (int i = 0; i < num_evaluations; ++i) {
     scorer.ResetInputs();
@@ -66,7 +71,7 @@ int main(int argc, char **argv) {
       std::cout << "---";
     }
     std::cout << " " << std::setw(11) << expected << " " << std::setw(11)
-              << result << " | " << std::setw(2) << score << " | ";
+              << result << " | " << std::setw(5) << score << " | ";
     for (auto itm : results) {
       std::cout << itm << " ";
     }

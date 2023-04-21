@@ -53,9 +53,9 @@ ABSL_FLAG(
     std::string, output_filename_prefix, "",
     "prefix to prepend to output file names (e.g. for saved evolved elfs)");
 ABSL_FLAG(uint32_t, random_seed, 1,
-          "random seed for the evolution (NOTE: evolutions with the same "
-          "random seed may diverge if the evolved programs compute results "
-          "non-deterministically)");
+          "random seed for the evolution (NOTE: repeated evolutions with the "
+          "same random seed may diverge if the evolved programs compute "
+          "results non-deterministically)");
 ABSL_FLAG(bool, initialize_programs_to_all_nops, false,
           "set all instructions in the evolvable code of the template ELF "
           "executable to nop prior to starting the evolution");
@@ -63,11 +63,12 @@ ABSL_FLAG(bool, initialize_programs_to_all_nops, false,
 int main(int argc, char **argv) {
   absl::SetProgramUsageMessage(
       "This program evolves ELFs to 'guess' a value and place the value in the "
-      "results[1] global variable of the evolved program.\nNOTE: The evolution "
-      "produces invalid executables, always run this program in a "
-      "sandbox!\nSample usage via the bazel build system (with 'build "
-      "--spawn_strategy=linux-sandbox' in .bazelrc):\nbazel run "
-      "//examples/000_guess_value:main -- --value_to_guess=1009");
+      "results[1] global variable of the evolved program.\n\nWARNING: The "
+      "evolution produces invalid executables. To protect your system, always "
+      "run this program in a sandbox!\n\nSample usage via the bazel build "
+      "system (with 'build --spawn_strategy=linux-sandbox' in "
+      ".bazelrc):\n\nbazel run //examples/000_guess_value:main -- "
+      "--value_to_guess=1009");
 
   absl::ParseCommandLine(argc, argv);
 
