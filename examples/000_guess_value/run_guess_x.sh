@@ -1,10 +1,10 @@
 #!/bin/bash
 
+# Based on https://tldp.org/LDP/abs/html/sha-bang.html.
 E_WRONG_ARGS=85
 
 if [ $# -ne 2 ]; then
   echo "Usage: $(basename $0) value_to_guess random_seed_value"
-  # `basename $0` is the script's filename.
   exit $E_WRONG_ARGS
 fi
 
