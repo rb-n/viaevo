@@ -44,6 +44,8 @@ cc_binary(
   srcs=["validate.cc"],
   deps=[
     ":scorer_copy_value",
+    "@com_google_absl//absl/flags:flag",
+    "@com_google_absl//absl/flags:parse",
   ],
   data=[":evolved_elfs"],
 )
