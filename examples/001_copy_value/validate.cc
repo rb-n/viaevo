@@ -34,12 +34,12 @@ ABSL_FLAG(int32_t, num_evaluations, 20,
 
 int main(int argc, char **argv) {
   absl::SetProgramUsageMessage(
-      "This program evaluates ELF programs that were evoloved to 'guess' a "
-      "value and place the value in the results[1] global variable.\nNOTE: The "
-      "evolution produces invalid executables, always run this program in a "
-      "sandbox!\nSample usage via the bazel build system (with 'build "
-      "--spawn_strategy=linux-sandbox' in .bazelrc):\nbazel run "
-      "//examples/000_guess_value:validate -- --value_to_guess=1009 "
+      "This program evaluates ELF programs that were evoloved to copy a value "
+      "from inputs and place the value in the results[1] global "
+      "variable.\nWARNING: The evolution produces invalid executables, always "
+      "run this program in a sandbox!\nSample usage via the bazel build system "
+      "(with 'build --spawn_strategy=linux-sandbox' in .bazelrc):\nbazel run "
+      "//examples/001_copy_value:validate -- --num_value_copies_in_inputs=10 "
       "--elf_filename=best_program.elf");
 
   absl::ParseCommandLine(argc, argv);

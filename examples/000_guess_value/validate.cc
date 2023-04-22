@@ -27,9 +27,9 @@ ABSL_FLAG(int32_t, num_evaluations, 20,
 int main(int argc, char **argv) {
   absl::SetProgramUsageMessage(
       "This program evaluates ELF programs that were evoloved to 'guess' a "
-      "value and place the value in the results[1] global variable.\nNOTE: The "
-      "evolution produces invalid executables, always run this program in a "
-      "sandbox!\nSample usage via the bazel build system (with 'build "
+      "value and place the value in the results[1] global variable.\nWARNING: "
+      "The evolution produces invalid executables, always run this program in "
+      "a sandbox!\nSample usage via the bazel build system (with 'build "
       "--spawn_strategy=linux-sandbox' in .bazelrc):\nbazel run "
       "//examples/000_guess_value:validate -- --value_to_guess=1009 "
       "--elf_filename=best_program.elf");
