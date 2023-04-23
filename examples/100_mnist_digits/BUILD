@@ -30,6 +30,8 @@ cc_binary(
     "//mutator:mutator_recombine_plain_elf",
     "//mutator:mutator_recombine_random",
     "//mutator:mutator_composite_random",
+    "@com_google_absl//absl/flags:flag",
+    "@com_google_absl//absl/flags:parse",
   ],
   data=[
     ":train_data",
