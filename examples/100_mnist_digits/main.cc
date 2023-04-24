@@ -97,6 +97,7 @@ int main(int argc, char **argv) {
   std::cout << "# random_seed: " << random_seed << "\n";
   std::cout << "# initialize_programs_to_all_nops: " << std::boolalpha
             << initialize_programs_to_all_nops << "\n";
+  std::cout << std::flush;
 
   viaevo::Random gen;
   gen.Seed(random_seed);

@@ -103,6 +103,7 @@ int main(int argc, char **argv) {
             << initialize_programs_to_all_nops << "\n";
   std::cout << "# num_value_copies_in_inputs: " << num_value_copies_in_inputs
             << "\n";
+  std::cout << std::flush;
 
   viaevo::Random gen;
   gen.Seed(random_seed);

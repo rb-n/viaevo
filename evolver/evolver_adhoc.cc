@@ -37,7 +37,7 @@ EvolverAdHoc::EvolverAdHoc(std::string elf_filename, int mu, int phi,
   for (int i = 0; i < mu_ + lambda_; ++i) {
     auto program = Program::Create(elf_filename);
     program->set_track_results_history(score_results_history);
-    if(initialize_programs_to_all_nops) {
+    if (initialize_programs_to_all_nops) {
       program->SetElfCodeToAllNops();
     }
     programs_.push_back(program);
@@ -136,7 +136,8 @@ void EvolverAdHoc::Run() {
       std::cout << "\n            | best last results: ";
       for (auto itm : best_generation_results)
         std::cout << itm << " ";
-      std::cout << "\n";
+      std::cout << "\n" << std::flush;
+
       std::string filename = output_filename_prefix_ + "gen_" +
                              std::to_string(current_generation_) +
                              "_best_program.elf";
