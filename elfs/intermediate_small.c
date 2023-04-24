@@ -19,7 +19,8 @@
 // This space may also serve as a "scratch space" for the program. Assign some
 // values here so that these are easily recognizable in the ELF or in the
 // process memory.
-int dummy[] = {10, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
+int dummy[] = {30, 1,  2,  3,  4,  5,  6,  7,  8,  9,  10, 11, 12, 13, 14, 15,
+               16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30};
 int results[] = {10, 0, 0, 0, 0, 0, 3, 3, 3, 3, 3};
 // clang-format off
 int inputs[] = {100, 
@@ -127,12 +128,12 @@ int main() {
   dummy[4] -= dummy[5];
   NOPS;
   int sum = 0;
-  for(int i = 0; i < 10; ++i) {
+  for (int i = 0; i < 10; ++i) {
     sum += dummy[i];
   }
   dummy[1] = sum;
   dummy[2] = sum % 2;
-  if(sum > 0) {
+  if (sum > 0) {
     dummy[3] = 1;
   } else {
     dummy[3] = 0;
@@ -141,19 +142,54 @@ int main() {
   NOPS;
   dummy[8] = dummy[9];
   int tmp = 0;
-  while(dummy[4] != -1 && dummy[4]) {
+  while (dummy[4] != -1 && dummy[4]) {
     tmp += dummy[4] & 1;
     dummy[4] >>= 1;
   }
   dummy[9] = tmp;
-  for(int i = 5; i < 8; ++i) {
+  for (int i = 5; i < 8; ++i) {
     dummy[4] += dummy[i];
   }
   NOPS;
-  asm("jmp . + 127");
   dummy[9] = dummy[10];
   NOPS;
   // 2nd round
+  dummy[1] = dummy[2];
+  dummy[11] = dummy[19] & 0xFF;
+  dummy[12] = (dummy[19] & 0xFF00) >> 8;
+  dummy[13] = (dummy[19] & 0xFF0000) >> 16;
+  dummy[14] = (dummy[19] & 0xFF000000) >> 24;
+  NOPS;
+  dummy[2] = dummy[3];
+  dummy[15] = dummy[11] > 128 ? 1 : 0;
+  dummy[16] = dummy[12] > 128 ? 1 : 0;
+  dummy[17] = dummy[13] > 128 ? 1 : 0;
+  dummy[18] = dummy[14] > 128 ? 1 : 0;
+  NOPS;
+  // asm("jmp . + 127");
+  dummy[3] = dummy[4];
+  if (dummy[22] && dummy[23] && dummy[24]) {
+    dummy[21] = !dummy[21];
+  }
+  NOPS;
+  dummy[4] = dummy[5];
+  if (dummy[25] || dummy[26] || dummy[27]) {
+    dummy[28] &= dummy[21];
+    dummy[29] |= dummy[21];
+    dummy[30] = dummy[28] ^ dummy[29];
+  }
+  NOPS;
+  dummy[5] = dummy[6];
+  NOPS;
+  dummy[6] = dummy[7];
+  NOPS;
+  dummy[7] = dummy[8];
+  NOPS;
+  dummy[8] = dummy[9];
+  NOPS;
+  dummy[9] = dummy[10];
+  NOPS;
+  // 3rd round
   dummy[1] = dummy[2];
   NOPS;
   dummy[2] = dummy[3];
@@ -170,7 +206,149 @@ int main() {
   NOPS;
   dummy[8] = dummy[9];
   NOPS;
+  asm("jmp . + 127");
   dummy[9] = dummy[10];
   NOPS;
+  // 4th round
+  dummy[1] = dummy[2];
+  NOPS;
+  dummy[2] = dummy[3];
+  NOPS;
+  dummy[3] = dummy[4];
+  NOPS;
+  dummy[4] = dummy[5];
+  NOPS;
+  dummy[5] = dummy[6];
+  NOPS;
+  dummy[6] = dummy[7];
+  NOPS;
+  dummy[7] = dummy[8];
+  NOPS;
+  dummy[8] = dummy[9];
+  NOPS;
+  asm("jmp . + 127");
+  dummy[9] = dummy[10];
+  NOPS;
+  // 5th round
+  dummy[1] = dummy[2];
+  NOPS;
+  dummy[2] = dummy[3];
+  NOPS;
+  dummy[3] = dummy[4];
+  NOPS;
+  dummy[4] = dummy[5];
+  NOPS;
+  dummy[5] = dummy[6];
+  NOPS;
+  dummy[6] = dummy[7];
+  NOPS;
+  dummy[7] = dummy[8];
+  NOPS;
+  dummy[8] = dummy[9];
+  NOPS;
+  asm("jmp . + 127");
+  dummy[9] = dummy[10];
+  NOPS;
+  // 6th round
+  dummy[1] = dummy[2];
+  NOPS;
+  dummy[2] = dummy[3];
+  NOPS;
+  dummy[3] = dummy[4];
+  NOPS;
+  dummy[4] = dummy[5];
+  NOPS;
+  dummy[5] = dummy[6];
+  NOPS;
+  dummy[6] = dummy[7];
+  NOPS;
+  dummy[7] = dummy[8];
+  NOPS;
+  dummy[8] = dummy[9];
+  NOPS;
+  asm("jmp . + 127");
+  dummy[9] = dummy[10];
+  NOPS;
+  // 7th round
+  dummy[1] = dummy[2];
+  NOPS;
+  dummy[2] = dummy[3];
+  NOPS;
+  dummy[3] = dummy[4];
+  NOPS;
+  dummy[4] = dummy[5];
+  NOPS;
+  dummy[5] = dummy[6];
+  NOPS;
+  dummy[6] = dummy[7];
+  NOPS;
+  dummy[7] = dummy[8];
+  NOPS;
+  dummy[8] = dummy[9];
+  NOPS;
+  asm("jmp . + 127");
+  dummy[9] = dummy[10];
+  NOPS;
+  // 8th round
+  dummy[1] = dummy[2];
+  NOPS;
+  dummy[2] = dummy[3];
+  NOPS;
+  dummy[3] = dummy[4];
+  NOPS;
+  dummy[4] = dummy[5];
+  NOPS;
+  dummy[5] = dummy[6];
+  NOPS;
+  dummy[6] = dummy[7];
+  NOPS;
+  dummy[7] = dummy[8];
+  NOPS;
+  dummy[8] = dummy[9];
+  NOPS;
+  asm("jmp . + 127");
+  dummy[9] = dummy[10];
+  NOPS;
+  // 9th round
+  dummy[1] = dummy[2];
+  NOPS;
+  dummy[2] = dummy[3];
+  NOPS;
+  dummy[3] = dummy[4];
+  NOPS;
+  dummy[4] = dummy[5];
+  NOPS;
+  dummy[5] = dummy[6];
+  NOPS;
+  dummy[6] = dummy[7];
+  NOPS;
+  dummy[7] = dummy[8];
+  NOPS;
+  dummy[8] = dummy[9];
+  NOPS;
+  asm("jmp . + 127");
+  dummy[9] = dummy[10];
+  NOPS;
+  // 10th round
+  dummy[1] = dummy[2];
+  NOPS;
+  dummy[2] = dummy[3];
+  NOPS;
+  dummy[3] = dummy[4];
+  NOPS;
+  dummy[4] = dummy[5];
+  NOPS;
+  dummy[5] = dummy[6];
+  NOPS;
+  dummy[6] = dummy[7];
+  NOPS;
+  dummy[7] = dummy[8];
+  NOPS;
+  dummy[8] = dummy[9];
+  NOPS;
+  // No jmp in this last round here.
+  dummy[9] = dummy[10];
+  NOPS;
+
   return 0;
 }

@@ -367,6 +367,5 @@ int main() {
   dummy[9] = dummy[10];
   NOPS;
 
-
   return 0;
 }
