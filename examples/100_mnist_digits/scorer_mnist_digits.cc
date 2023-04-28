@@ -108,7 +108,7 @@ namespace {
 int ReadBigEndianInt(std::ifstream &ifs) {
   int result = 0;
   unsigned char bytes[4];
-  ifs >> bytes[0] >> bytes[1] >> bytes[2] >> bytes[3];
+  ifs.read(reinterpret_cast<char *>(bytes), 4);
   result = bytes[0];
   for (int j = 1; j < 4; ++j) {
     result <<= 8;
@@ -170,10 +170,9 @@ void ScorerMnistDigits::LoadSample(int pos) {
   assert(dimensions_sizes[0] == 60000 &&
          "Expected 60000 samples in labels data.");
   ifs_labels.seekg(ifs_labels.tellg() + (std::ifstream::pos_type)pos);
-  assert(!ifs_images.bad() && !ifs_images.eof() && "Images data seekg failed.");
-  current_inputs_.resize(1 + image_size /
-                                 sizeof(decltype(current_inputs_)::value_type));
-  ifs_labels >> c;
+  assert(!ifs_labels.bad() && !ifs_labels.eof() && "Labels data seekg failed.");
+
+  ifs_labels.read(reinterpret_cast<char *>(&c), 1);
   expected_value_ = c;
   ifs_labels.close();
 }

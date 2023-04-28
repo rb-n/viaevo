@@ -50,7 +50,7 @@ int main() {
   // functionality (e.g. modifying the assignents between dummy variables below
   // to affect inputs and results) rather than creating new valid instructions.
   // Adding additional different operations between dummy variables (as in e.g.
-  // intermediate_small) may enable the evolution of more involved computtional
+  // intermediate_small) may enable the evolution of more involved computational
   // tasks if this is the case.
   NOPS;
   dummy[1] = dummy[2];
