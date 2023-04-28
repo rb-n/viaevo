@@ -14,7 +14,7 @@ echo "iterations: $ITERATIONS"
 
 for i in $(seq $ITERATIONS); do
   echo "iteration $i of $ITERATIONS"
-  sh examples/100_mnist_digits/run_digits.sh $VALUE_TO_GUESS $i
+  sh examples/100_mnist_digits/run_digits.sh $i
 done
 
 exit
