@@ -101,4 +101,23 @@ TEST(ScorerCopyValueTest, MaxScore) {
   EXPECT_EQ(scorer.MaxScore(), 112);
 }
 
+TEST(ScorerCopyValueTest, AvoidMinusOne) {
+  viaevo::RandomMock gen({(unsigned int)-1, (unsigned int)-1, 42});
+  EXPECT_EQ(gen(), (unsigned int)-1);
+  EXPECT_EQ(gen(), (unsigned int)-1);
+  EXPECT_EQ(gen(), 42);
+  EXPECT_EQ(gen(), (unsigned int)-1);
+  EXPECT_EQ(gen(), (unsigned int)-1);
+  EXPECT_EQ(gen(), 42);
+
+  viaevo::ScorerCopyValue scorer(gen, 5);
+  EXPECT_EQ(scorer.current_inputs()[0], 42);
+
+  scorer.ResetInputs();
+  EXPECT_EQ(scorer.current_inputs()[0], 42);
+
+  scorer.ResetInputs();
+  EXPECT_EQ(scorer.current_inputs()[0], 42);
+}
+
 } // namespace

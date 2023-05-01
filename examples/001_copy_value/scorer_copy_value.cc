@@ -79,8 +79,8 @@ long long ScorerCopyValue::MaxScore() const {
 
 void ScorerCopyValue::ResetInputs() {
   current_inputs_[0] = gen_();
-  // Avoid 0 as the scorer does not work correctly in this case.
-  while (current_inputs_[0] == 0) {
+  // Avoid -1 as the scorer does not work correctly in this case.
+  while (current_inputs_[0] == -1) {
     current_inputs_[0] = gen_();
   }
   for (int i = 1; i < number_of_copies_in_current_inputs_; ++i) {
