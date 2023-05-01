@@ -16,8 +16,8 @@ public:
   }
 };
 
-TEST(ScorerGuessValueTest, FailOnValue0) {
-  EXPECT_DEATH(viaevo::ScorerGuessValue(0), "Value should not be 0.");
+TEST(ScorerGuessValueTest, FailOnValueMinusOne) {
+  EXPECT_DEATH(viaevo::ScorerGuessValue(-1), "Value should not be -1.");
 }
 
 TEST(ScorerGuessValueTest, Score) {
@@ -26,7 +26,7 @@ TEST(ScorerGuessValueTest, Score) {
   viaevo::ScorerGuessValue scorer1024(1024);
 
   // Results the same as initialized in //elfs/simple_small.c
-  std::vector<int> results{30, 0, 0, 0, 0, 0, 3, 3, 3, 3, 3};
+  std::vector<int> results{30, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
 
   ProgramMock program;
 

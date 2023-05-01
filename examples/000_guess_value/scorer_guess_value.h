@@ -15,7 +15,7 @@ namespace viaevo {
 
 // ScorerGuessValue expects value_ in Program's last_results_[1]. Inputs are not
 // relevant here as the only objecive for Program's is to guess the constant
-// value passed to the scorer. The value may not be 0 for the scorer to work
+// value passed to the scorer. The value may not be -1 for the scorer to work
 // correctly.
 class ScorerGuessValue : public Scorer {
 public:
@@ -31,8 +31,8 @@ public:
   int value() { return value_; }
 
 protected:
-  // Value to guess. Value MAY NOT be 0 for the scorer to work correctly.
-  int value_ = 0;
+  // Value to guess. Value MAY NOT be -1 for the scorer to work correctly.
+  int value_ = -1;
 };
 
 } // namespace viaevo

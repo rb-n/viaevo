@@ -39,21 +39,14 @@ long long ScorerCopyValue::Score(const Program &program) const {
   // in one of these is easier to lead to a change in results[1] than no change
   // in any of the elements. Also, this scoring is based on results from
   // //elfs/simple_small.c.
-  if (results[1] == 0) {
+  if (results[1] == -1) {
     // results[0] is disregarded as it is changed in main of //elfs:simple_small
     // from 10 to 20.
-    for (int i = 2; i < 6; ++i) {
-      if (results[i] != 0) {
+    for (int i = 2; i < 11; ++i) {
+      if (results[i] != -1) {
         ++score;
       }
     }
-
-    for (int i = 6; i < 11; ++i) {
-      if (results[i] != 3) {
-        ++score;
-      }
-    }
-
     return score;
   }
 

@@ -15,7 +15,7 @@
 namespace viaevo {
 
 // ScorerCopyValue expects the value of current_inputs_[0] in Program's
-// results[1]. The value may not be 0 for the scorer to work correctly.
+// results[1]. The value may not be -1 for the scorer to work correctly.
 class ScorerCopyValue : public Scorer {
 public:
   explicit ScorerCopyValue(Random &gen, int number_of_copies_in_current_inputs);

@@ -31,7 +31,7 @@ TEST(ScorerCopyValueTest, Score) {
   EXPECT_EQ(scorer.current_inputs(), std::vector<int>(5, 42));
 
   // Results the same as initialized in //elfs/simple_small.c
-  std::vector<int> results{20, 0, 0, 0, 0, 0, 3, 3, 3, 3, 3};
+  std::vector<int> results{20, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
 
   ProgramMock program;
 
@@ -57,7 +57,7 @@ TEST(ScorerCopyValueTest, Score) {
   program.set_last_results(results);
   EXPECT_EQ(scorer.Score(program), 64);
 
-  results[4] = 0;
+  results[4] = -1;
   program.set_last_results(results);
   EXPECT_EQ(scorer.Score(program), 3);
 
