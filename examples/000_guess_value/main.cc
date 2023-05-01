@@ -43,7 +43,7 @@ ABSL_FLAG(int32_t, lambda, 140,
 ABSL_FLAG(int32_t, evaluations_per_program, 10,
           "number of evaluations to be performed on each program in each "
           "generation (scores are accumulated across evaluations)");
-ABSL_FLAG(int32_t, max_generations, 10000,
+ABSL_FLAG(int32_t, max_generations, 1000,
           "maximum number of generations for the evolution");
 ABSL_FLAG(
     bool, score_results_history, false,
