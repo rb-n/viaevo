@@ -16,23 +16,24 @@
 
 // Define some initialized data where the inputs for the desired computational
 // tasks will be placed and from where the results of the tasks will be read.
-// This space may also serve as a "scratch space" for the program. Assign some
-// values here so that these are easily recognizable in the ELF or in the
-// process memory.
-int dummy[] = {10, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
-int results[] = {10, 0, 0, 0, 0, 0, 3, 3, 3, 3, 3};
+// This space may also serve as a "scratch space" for the program.
+int dummy[11] = {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
+// The value of results[0] should be disregarded, it is changed to 20 early in
+// main below to have a way to check if main was reached when executing this
+// program (via ptrace in the class Program).
+int results[11] = {10, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
 // clang-format off
-int inputs[] = {100, 
-  42, 17, 42, 17, 42, 17, 42, 17, 42, 17,
-  42, 17, 42, 17, 42, 17, 42, 17, 42, 17,
-  42, 17, 42, 17, 42, 17, 42, 17, 42, 17,
-  42, 17, 42, 17, 42, 17, 42, 17, 42, 17,
-  42, 17, 42, 17, 42, 17, 42, 17, 42, 17,
-  42, 17, 42, 17, 42, 17, 42, 17, 42, 17,
-  42, 17, 42, 17, 42, 17, 42, 17, 42, 17,
-  42, 17, 42, 17, 42, 17, 42, 17, 42, 17,
-  42, 17, 42, 17, 42, 17, 42, 17, 42, 17,
-  42, 17, 42, 17, 42, 17, 42, 17, 42, 17
+int inputs[101] = {-1, 
+  -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+  -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+  -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+  -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+  -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+  -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+  -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+  -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+  -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+  -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
   };
 // clang-format on
 
@@ -40,7 +41,7 @@ int main() {
   // Change result[0] as a control to confirm (before code evolution) that this
   // code runs.
   results[0] = 20;
-  // Create a suffiecient number instructions in this template program to be
+  // Create a sufficient number instructions in this template program to be
   // modified during the evolution of the program. Ideally(?), these would be
   // nop instuctions only, but only a short stretch of nop instructions is
   // visible in the ELF if only nop instructions are added here. The nop

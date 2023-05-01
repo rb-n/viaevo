@@ -8,7 +8,9 @@
 // should be delivered to the process.
 
 // Define some initialized data for consistency to meet Program's expectation
-// about the ELF.
+// about the ELF. These values are a relic of early development when the values
+// were intended to be easily recognizable in the ELF file or in the process
+// memory. The values should not matter here.
 int dummy[] = {10, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
 int results[] = {10, 0, 0, 0, 0, 0, 3, 3, 3, 3, 3};
 // clang-format off
