@@ -16,41 +16,41 @@
 
 // Define some initialized data where the inputs for the desired computational
 // tasks will be placed and from where the results of the tasks will be read.
-// This space may also serve as a "scratch space" for the program. Assign some
-// values here so that these are easily recognizable in the ELF or in the
-// process memory.
-int dummy[] = {30, 1,  2,  3,  4,  5,  6,  7,  8,  9,  10, 11, 12, 13, 14, 15,
-               16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30};
+// This space may also serve as a "scratch space" for the program.
+int dummy[] = {
+    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+};
 int results[] = {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
 // clang-format off
-int inputs[] = {200, 
-  42, 17, 42, 17, 42, 17, 42, 17, 42, 17,
-  42, 17, 42, 17, 42, 17, 42, 17, 42, 17,
-  42, 17, 42, 17, 42, 17, 42, 17, 42, 17,
-  42, 17, 42, 17, 42, 17, 42, 17, 42, 17,
-  42, 17, 42, 17, 42, 17, 42, 17, 42, 17,
-  42, 17, 42, 17, 42, 17, 42, 17, 42, 17,
-  42, 17, 42, 17, 42, 17, 42, 17, 42, 17,
-  42, 17, 42, 17, 42, 17, 42, 17, 42, 17,
-  42, 17, 42, 17, 42, 17, 42, 17, 42, 17,
-  42, 17, 42, 17, 42, 17, 42, 17, 42, 17,
-  42, 17, 42, 17, 42, 17, 42, 17, 42, 17,
-  42, 17, 42, 17, 42, 17, 42, 17, 42, 17,
-  42, 17, 42, 17, 42, 17, 42, 17, 42, 17,
-  42, 17, 42, 17, 42, 17, 42, 17, 42, 17,
-  42, 17, 42, 17, 42, 17, 42, 17, 42, 17,
-  42, 17, 42, 17, 42, 17, 42, 17, 42, 17,
-  42, 17, 42, 17, 42, 17, 42, 17, 42, 17,
-  42, 17, 42, 17, 42, 17, 42, 17, 42, 17,
-  42, 17, 42, 17, 42, 17, 42, 17, 42, 17,
-  42, 17, 42, 17, 42, 17, 42, 17, 42, 17
+int inputs[] = {-1,
+  -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+  -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+  -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+  -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+  -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+  -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+  -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+  -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+  -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+  -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+  -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+  -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+  -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+  -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+  -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+  -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+  -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+  -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+  -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+  -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
   };
-int scratchspace[] = {50,
-  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
-  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
-  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
-  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
-  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
+int scratchspace[] = {-1,
+  -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+  -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+  -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+  -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+  -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
   };
 // clang-format on
 
@@ -60,7 +60,7 @@ int main() {
   // Change result[0] as a control to confirm (before code evolution) that this
   // code runs.
   results[0] = 20;
-  // Create a suffiecient number instructions in this template program to be
+  // Create a sufficient number instructions in this template program to be
   // modified during the evolution of the program. Ideally(?), these would be
   // nop instuctions only, but only a short stretch of nop instructions is
   // visible in the ELF if only nop instructions are added here. The nop
@@ -185,12 +185,12 @@ int main() {
   NOPS;
   // asm("jmp . + 127");
   dummy[3] = dummy[4];
-  if(dummy[22] && dummy[23] && dummy[24]) {
+  if (dummy[22] && dummy[23] && dummy[24]) {
     dummy[21] = !dummy[21];
   }
   NOPS;
   dummy[4] = dummy[5];
-  if(dummy[25] || dummy[26] || dummy[27]) {
+  if (dummy[25] || dummy[26] || dummy[27]) {
     dummy[28] &= dummy[21];
     dummy[29] |= dummy[21];
     dummy[30] = dummy[28] ^ dummy[29];

@@ -13,7 +13,7 @@ TEST(ProgramTest, CreateExecuteSimpleSmall) {
   std::shared_ptr<viaevo::Program> program =
       viaevo::Program::Create("elfs/simple_small");
 
-  std::vector<int> default_results{10, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
+  std::vector<int> default_results{-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
   std::vector<int> changed_results = default_results;
   // results[0] is changed in main() of //elfs:simple_small from 10 to 20.
   changed_results[0] = 20;
@@ -169,7 +169,7 @@ TEST(ProgramTest, CreateExecuteIntermediateSmall) {
   std::shared_ptr<viaevo::Program> program =
       viaevo::Program::Create("elfs/intermediate_small");
 
-  std::vector<int> default_results{10, 0, 0, 0, 0, 0, 3, 3, 3, 3, 3};
+  std::vector<int> default_results{-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
   std::vector<int> changed_results = default_results;
   // results[0] is changed in main() of //elfs:intermediate_small from 10 to 20.
   changed_results[0] = 20;
@@ -442,7 +442,7 @@ TEST(ProgramTest, SetElfCodeToAllNopsSimpleSmall) {
   std::shared_ptr<viaevo::Program> program =
       viaevo::Program::Create("elfs/simple_small");
 
-  std::vector<int> default_results{10, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
+  std::vector<int> default_results{-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
   std::vector<int> changed_results = default_results;
   // results[0] is changed in main() of //elfs:simple_small from 10 to 20.
   changed_results[0] = 20;
@@ -532,9 +532,9 @@ TEST(ProgramTest, GetSetElfInputsSimpleMedium) {
 
   std::vector<int> elf_inputs = program->GetElfInputs();
   EXPECT_EQ(elf_inputs.size(), 201);
-  EXPECT_EQ(elf_inputs[100], 17);
+  EXPECT_EQ(elf_inputs[100], -1);
   elf_inputs.resize(5);
-  std::vector<int> expected{200, 42, 17, 42, 17};
+  std::vector<int> expected{-1, -1, -1, -1, -1};
   EXPECT_EQ(elf_inputs, expected);
 
   // Setting with a vector of a smaller size (3) than inputs in the ELF.
@@ -542,9 +542,9 @@ TEST(ProgramTest, GetSetElfInputsSimpleMedium) {
   program->SetElfInputs(short_vector);
   elf_inputs = program->GetElfInputs();
   EXPECT_EQ(elf_inputs.size(), 201);
-  EXPECT_EQ(elf_inputs[100], 17);
+  EXPECT_EQ(elf_inputs[100], -1);
   elf_inputs.resize(5);
-  expected = {7, 7, 7, 42, 17};
+  expected = {7, 7, 7, -1, -1};
   EXPECT_EQ(elf_inputs, expected);
 
   // Setting with a vector of a matching size to inputs in the ELF.
@@ -564,9 +564,9 @@ TEST(ProgramTest, GetSetElfInputsIntermediateSmall) {
 
   std::vector<int> elf_inputs = program->GetElfInputs();
   EXPECT_EQ(elf_inputs.size(), 101);
-  EXPECT_EQ(elf_inputs[100], 17);
+  EXPECT_EQ(elf_inputs[100], -1);
   elf_inputs.resize(5);
-  std::vector<int> expected{100, 42, 17, 42, 17};
+  std::vector<int> expected{-1, -1, -1, -1, -1};
   EXPECT_EQ(elf_inputs, expected);
 
   // Setting with a vector of a smaller size (3) than inputs in the ELF.
@@ -574,9 +574,9 @@ TEST(ProgramTest, GetSetElfInputsIntermediateSmall) {
   program->SetElfInputs(short_vector);
   elf_inputs = program->GetElfInputs();
   EXPECT_EQ(elf_inputs.size(), 101);
-  EXPECT_EQ(elf_inputs[100], 17);
+  EXPECT_EQ(elf_inputs[100], -1);
   elf_inputs.resize(5);
-  expected = {7, 7, 7, 42, 17};
+  expected = {7, 7, 7, -1, -1};
   EXPECT_EQ(elf_inputs, expected);
 
   // Setting with a vector of a matching size to inputs in the ELF.
@@ -596,9 +596,9 @@ TEST(ProgramTest, GetSetElfInputsIntermediateMedium) {
 
   std::vector<int> elf_inputs = program->GetElfInputs();
   EXPECT_EQ(elf_inputs.size(), 201);
-  EXPECT_EQ(elf_inputs[100], 17);
+  EXPECT_EQ(elf_inputs[100], -1);
   elf_inputs.resize(5);
-  std::vector<int> expected{200, 42, 17, 42, 17};
+  std::vector<int> expected{-1, -1, -1, -1, -1};
   EXPECT_EQ(elf_inputs, expected);
 
   // Setting with a vector of a smaller size (3) than inputs in the ELF.
@@ -606,9 +606,9 @@ TEST(ProgramTest, GetSetElfInputsIntermediateMedium) {
   program->SetElfInputs(short_vector);
   elf_inputs = program->GetElfInputs();
   EXPECT_EQ(elf_inputs.size(), 201);
-  EXPECT_EQ(elf_inputs[100], 17);
+  EXPECT_EQ(elf_inputs[100], -1);
   elf_inputs.resize(5);
-  expected = {7, 7, 7, 42, 17};
+  expected = {7, 7, 7, -1, -1};
   EXPECT_EQ(elf_inputs, expected);
 
   // Setting with a vector of a matching size to inputs in the ELF.
@@ -712,7 +712,7 @@ TEST(ProgramTest, ResultsHistorySimpleSmall) {
   EXPECT_EQ(program->results_history().size(), 0)
       << "Results history should be empty after program creation.";
 
-  std::vector<int> default_results{10, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
+  std::vector<int> default_results{-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
   std::vector<int> changed_results = default_results;
   // results[0] is changed in main() of //elfs:simple_small from 10 to 20.
   changed_results[0] = 20;

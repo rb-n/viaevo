@@ -17,13 +17,13 @@
 // Define some initialized data where the inputs for the desired computational
 // tasks will be placed and from where the results of the tasks will be read.
 // This space may also serve as a "scratch space" for the program.
-int dummy[11] = {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
+int dummy[] = {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
 // The value of results[0] should be disregarded, it is changed to 20 early in
 // main below to have a way to check if main was reached when executing this
 // program (via ptrace in the class Program).
-int results[11] = {10, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
+int results[] = {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
 // clang-format off
-int inputs[101] = {-1, 
+int inputs[] = {-1, 
   -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
   -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
   -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
