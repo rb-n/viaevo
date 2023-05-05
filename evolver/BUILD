@@ -1,28 +1,28 @@
 cc_library(
-  name="evolver_adhoc",
-  srcs=["evolver_adhoc.cc"],
-  hdrs=["evolver_adhoc.h"],
-  deps=[
-    "//mutator:mutator",
-    "//scorer:scorer",
-    "//program:program",
-    "//util:random",
-  ],
-  visibility=[
-    "//examples:__subpackages__",
-  ],
+    name = "evolver_adhoc",
+    srcs = ["evolver_adhoc.cc"],
+    hdrs = ["evolver_adhoc.h"],
+    visibility = [
+        "//examples:__subpackages__",
+    ],
+    deps = [
+        "//mutator",
+        "//program",
+        "//scorer",
+        "//util:random",
+    ],
 )
 
 cc_test(
-  name="evolver_adhoc_test",
-  srcs=["evolver_adhoc_test.cc"],
-  deps=[
-    ":evolver_adhoc",
-    "//util:random_mock",
-    "//mutator:mutator_point_random",
-    "//program:program",
-    "//scorer:scorer_mock",
-    "@com_google_googletest//:gtest_main",
-  ],
-  data=["//elfs:simple_small"],
+    name = "evolver_adhoc_test",
+    srcs = ["evolver_adhoc_test.cc"],
+    data = ["//elfs:simple_small"],
+    deps = [
+        ":evolver_adhoc",
+        "//mutator:mutator_point_random",
+        "//program",
+        "//scorer:scorer_mock",
+        "//util:random_mock",
+        "@com_google_googletest//:gtest_main",
+    ],
 )
