@@ -10,7 +10,6 @@
 #include "../../mutator/mutator_composite_random.h"
 #include "../../mutator/mutator_point_last_instruction.h"
 #include "../../mutator/mutator_point_random.h"
-#include "../../mutator/mutator_recombine_plain_elf.h"
 #include "../../mutator/mutator_recombine_random.h"
 #include "../../util/random.h"
 
@@ -22,10 +21,6 @@ int main() {
       std::make_shared<viaevo::MutatorPointRandom>(gen);
   std::shared_ptr<viaevo::MutatorRecombineRandom> mutator_recombine =
       std::make_shared<viaevo::MutatorRecombineRandom>(gen);
-  std::shared_ptr<viaevo::MutatorRecombinePlainElf>
-      mutator_recombine_plain_elf =
-          std::make_shared<viaevo::MutatorRecombinePlainElf>(
-              gen, "elfs/intermediate_small");
   std::shared_ptr<viaevo::MutatorPointLastInstruction>
       mutator_last_instruction =
           std::make_shared<viaevo::MutatorPointLastInstruction>(gen);
@@ -33,13 +28,7 @@ int main() {
   viaevo::MutatorCompositeRandom mutator_composite(gen);
   mutator_composite.AppendMutator(mutator_point);
   mutator_composite.AppendMutator(mutator_recombine);
-  mutator_composite.AppendMutator(mutator_recombine_plain_elf);
-  // Naive "implementation of a weighted random composite mutator - just append
-  // a mutator mutiple times."
-  // TODO: Implement a weighted random composite mutator.
-  for (int i = 0; i < 7; ++i) {
-    mutator_composite.AppendMutator(mutator_last_instruction);
-  }
+  mutator_composite.AppendMutator(mutator_last_instruction);
 
   viaevo::ScorerDoubleValue scorer(gen, 50);
 
