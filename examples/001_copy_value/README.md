@@ -1,6 +1,6 @@
 # Viaevo example 001_copy_value
 
-This example evolves programs that copy a value from `inputs[0]` (or any other element in inputs if the value is present in this array in multiple copies) to `results[1]` global variable. The default starting program for the evolution is //elfs:simple_small ([simple_small.c](../../elfs/simple_small.c)).
+This example evolves programs that copy the value from `inputs[0]` (or any other element in inputs if the value is present in this array in multiple copies) to the `results[1]` global variable. The default starting program for the evolution is //elfs:simple_small ([simple_small.c](../../elfs/simple_small.c)).
 
 > **_WARNING:_** The evolution produces invalid executables. To protect your system, ***always run these programs in a sandbox!*** When using bazel on Linux, this is achieved by default via `build --spawn_strategy=linux-sandbox` in [.bazelrc](../../.bazelrc). There are other safeguards in place (such as restricting system calls the evolved programs' processes can make and terminating the processes on any signal or system call once the evolved code is reached), but the evolved programs may still exhibit unwanted behavior.
 
