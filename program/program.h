@@ -32,6 +32,10 @@ public:
   Program(const char *filename);
   Program(const char *filename, SymbolData symbol_data,
           int expected_ptrace_stops);
+
+  Program(const Program &) = delete;
+  Program &operator=(const Program &) = delete;
+
   ~Program();
 
   bool IsInitialized() const;
