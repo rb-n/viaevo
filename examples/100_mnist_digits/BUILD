@@ -62,5 +62,7 @@ cc_binary(
     ],
     deps = [
         ":scorer_mnist_digits",
+        "@com_google_absl//absl/flags:flag",
+        "@com_google_absl//absl/flags:parse",
     ],
 )
