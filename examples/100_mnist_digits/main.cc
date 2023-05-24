@@ -41,12 +41,12 @@ ABSL_FLAG(int32_t, lambda, 140,
 ABSL_FLAG(int32_t, evaluations_per_program, 200,
           "number of evaluations to be performed on each program in each "
           "generation (scores are accumulated across evaluations)");
-ABSL_FLAG(int32_t, max_generations, 100000,
+ABSL_FLAG(int32_t, max_generations, 10000,
           "maximum number of generations for the evolution");
 ABSL_FLAG(
-    bool, score_results_history, false,
+    bool, score_results_history, true,
     "track and score the set of evolved program's results across evaluations "
-    "within a generation (not applicable for 000_guess_value)");
+    "within a generation");
 ABSL_FLAG(
     std::string, output_filename_prefix, "",
     "prefix to prepend to output file names (e.g. for saved evolved elfs)");
