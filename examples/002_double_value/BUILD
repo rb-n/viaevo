@@ -32,5 +32,7 @@ cc_binary(
         "//mutator:mutator_point_last_instruction",
         "//mutator:mutator_point_random",
         "//mutator:mutator_recombine_random",
+        "@com_google_absl//absl/flags:flag",
+        "@com_google_absl//absl/flags:parse",
     ],
 )

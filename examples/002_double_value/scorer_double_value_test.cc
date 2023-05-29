@@ -33,7 +33,7 @@ TEST(ScorerDoubleValueTest, Score) {
   EXPECT_EQ(scorer.expected_value(), 42);
 
   // Results the same as initialized in //elfs/simple_small.c
-  std::vector<int> results{20, 0, 0, 0, 0, 0, 3, 3, 3, 3, 3};
+  std::vector<int> results{20, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
 
   ProgramMock program;
 
@@ -53,40 +53,47 @@ TEST(ScorerDoubleValueTest, Score) {
   program.set_last_results(results);
   EXPECT_EQ(scorer.Score(program), 3);
 
-  // Setting one of the other results to the correct value should add
-  // additonal 60.
+  // Setting one of the other results to the correct value.
   results[4] = 42;
   program.set_last_results(results);
   EXPECT_EQ(scorer.Score(program), 64);
+  // EXPECT_EQ(scorer.Score(program), 1'000'000'000);
 
   results[4] = 0;
   program.set_last_results(results);
-  EXPECT_EQ(scorer.Score(program), 3);
+  EXPECT_EQ(scorer.Score(program), 4);
 
-  // Changing results[1] disregards other elements and scores only based on
-  // results[1].
   results[1] = 1;
   program.set_last_results(results);
   EXPECT_EQ(scorer.Score(program), 48);
+  // EXPECT_EQ(scorer.Score(program), 1'000);
 
-  results[1] = 1024;
+  // Other multiple of the correct value.
+  results[1] = 3*42;
   program.set_last_results(results);
-  EXPECT_EQ(scorer.Score(program), 48);
+  EXPECT_EQ(scorer.Score(program), 49);
+  // EXPECT_EQ(scorer.Score(program), 1'000'000);
 
   results[1] = 42;
   program.set_last_results(results);
   EXPECT_EQ(scorer.Score(program), 112);
+  EXPECT_EQ(scorer.Score(program), scorer.MaxScore());
+  // EXPECT_EQ(scorer.Score(program), 1'000'000'000'000);
 
   // Walking back changes in the other elements does not impact the score when
   // results[1] changed.
   results[2] = 0;
   program.set_last_results(results);
   EXPECT_EQ(scorer.Score(program), 112);
+  EXPECT_EQ(scorer.Score(program), scorer.MaxScore());
+  // EXPECT_EQ(scorer.Score(program), 1'000'000'000'000);
 
   results[5] = 0;
   results[7] = 3;
   program.set_last_results(results);
   EXPECT_EQ(scorer.Score(program), 112);
+  EXPECT_EQ(scorer.Score(program), scorer.MaxScore());
+  // EXPECT_EQ(scorer.Score(program), 1'000'000'000'000);
 }
 
 TEST(ScorerDoubleValueTest, MaxScore) {
@@ -95,12 +102,11 @@ TEST(ScorerDoubleValueTest, MaxScore) {
   EXPECT_EQ(gen(), 21);
   EXPECT_EQ(gen(), 21);
   viaevo::ScorerDoubleValue scorer(gen, 1);
-  // Max score should be 112 (20 for changing results[1] and +1 for each
-  // correctly set bit in results[1] and +60 for at least one results element
-  // equalling the correct value).
   EXPECT_EQ(scorer.MaxScore(), 112);
+  // EXPECT_EQ(scorer.MaxScore(), 1'000'000'000'000);
   scorer.ResetInputs();
   EXPECT_EQ(scorer.MaxScore(), 112);
+  // EXPECT_EQ(scorer.MaxScore(), 1'000'000'000'000);
 }
 
 } // namespace

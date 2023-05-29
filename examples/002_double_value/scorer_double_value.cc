@@ -39,17 +39,11 @@ long long ScorerDoubleValue::Score(const Program &program) const {
   // in one of these is easier to lead to a change in results[1] than no change
   // in any of the elements. Also, this scoring is based on results from
   // //elfs/simple_small.c.
-  if (results[1] == 0) {
+  if (results[1] == -1) {
     // results[0] is disregarded as it is changed in main of //elfs:simple_small
     // from 10 to 20.
-    for (int i = 2; i < 6; ++i) {
-      if (results[i] != 0) {
-        ++score;
-      }
-    }
-
-    for (int i = 6; i < 11; ++i) {
-      if (results[i] != 3) {
+    for (int i = 2; i < 11; ++i) {
+      if (results[i] != -1) {
         ++score;
       }
     }
@@ -75,18 +69,66 @@ long long ScorerDoubleValue::Score(const Program &program) const {
   return score;
 }
 
+// long long ScorerDoubleValue::Score(const Program &program) const {
+//   const std::vector<int> &results = program.last_results();
+
+//   // The highest possible score for a correct result.
+//   if (results[1] == expected_value_) {
+//     return 1'000'000'000'000;
+//   }
+
+//   // Second highest score if any of the results has the correct score.
+//   for (std::vector<int>::size_type i = 0; i < results.size(); ++i) {
+//     if (results[i] == expected_value_) {
+//       return 1'000'000'000;
+//     }
+//   }
+
+//   if (results[1] != -1) {
+//     // Third highest score if results[1] is other multiple of inputs[0].
+//     if (results[1] % (expected_value_ / 2) == 0) {
+//       return 1'000'000;
+//     } else {
+//       // Some score if results[1] at least changes.
+//       return 1'000;
+//     }
+//   }
+
+//   // If results[1] is unchanged,
+//   // at least score changes in other elements of results. The assumption is that
+//   // a change in one of the others is better that no change and a change in
+//   // multiple is better than a change in one. It is also assumed that a change
+//   // in one of these is easier to lead to a change in results[1] than no change
+//   // in any of the elements. Also, this scoring is based on results from
+//   // //elfs/simple_small.c.
+
+//   long long score = 0;
+
+//   // results[0] is disregarded as it is changed in main of //elfs:simple_small
+//   // from 10 to 20.
+//   for (std::size_t i = 2; i < 11; ++i) {
+//     if (results[i] != -1) {
+//       ++score;
+//     }
+//   }
+
+//   return score;
+// }
+
+
 long long ScorerDoubleValue::MaxScore() const {
   // Max score should be 112 (20 for changing results[1] and +1 for each
   // correctly set bit in results[1] and +60 for at least one results element
   // equalling the correct value).
   return 112;
+  // return 1'000'000'000'000;
 }
 
 void ScorerDoubleValue::ResetInputs() {
   current_inputs_[0] = gen_();
-  // Avoid 0 as the scorer does not work correctly in this case. Also prevent
+  // Avoid -1 as the scorer does not work correctly in this case. Also prevent
   // overflow or underfow when multiplied by 2.
-  while (current_inputs_[0] == 0 || current_inputs_[0] < -1'000'000'000 ||
+  while (current_inputs_[0] == -1 || current_inputs_[0] < -1'000'000'000 ||
          current_inputs_[0] > 1'000'000'000) {
     current_inputs_[0] = gen_();
   }
