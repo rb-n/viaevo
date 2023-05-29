@@ -25,7 +25,7 @@ ABSL_FLAG(int32_t, value_to_guess, 42,
 ABSL_FLAG(std::string, elf_filename, "elfs/simple_small",
           "filename of the ELF executable to be used as the starting template "
           "for evolution (NOTE: results are expected to be initialized to {10, "
-          "0, 0, 0, 0, 0, 3, 3, 3, 3, 3})");
+          "-1, -1, -1, -1, -1, -1, -1, -1, -1, -1})");
 ABSL_FLAG(
     int32_t, mu, 60,
     "number of parents selected in each generation to generate lambda "

@@ -22,7 +22,7 @@
 ABSL_FLAG(std::string, elf_filename, "elfs/simple_small",
           "filename of the ELF executable to be used as the starting template "
           "for evolution (NOTE: results are expected to be initialized to {10, "
-          "0, 0, 0, 0, 0, 3, 3, 3, 3, 3})");
+          "-1, -1, -1, -1, -1, -1, -1, -1, -1, -1})");
 ABSL_FLAG(
     int32_t, mu, 60,
     "number of parents selected in each generation to generate lambda "
@@ -34,9 +34,6 @@ ABSL_FLAG(int32_t, phi, 10,
 ABSL_FLAG(int32_t, lambda, 140,
           "number of offspring to generate from mu parents in each generation "
           "(the size of the population in each generation is mu + lambda)");
-// Each evaluation is expected to produce the same value in results[1]. Multiple
-// evaluations per program help "penalize" programs that are non-deterministic
-// and produce different results in each evaluation.
 ABSL_FLAG(int32_t, evaluations_per_program, 10,
           "number of evaluations to be performed on each program in each "
           "generation (scores are accumulated across evaluations)");
@@ -45,7 +42,7 @@ ABSL_FLAG(int32_t, max_generations, 1000,
 ABSL_FLAG(
     bool, score_results_history, false,
     "track and score the set of evolved program's results across evaluations "
-    "within a generation (not applicable for 000_copy_value)");
+    "within a generation (not applicable for 001_copy_value)");
 ABSL_FLAG(
     std::string, output_filename_prefix, "",
     "prefix to prepend to output file names (e.g. for saved evolved elfs)");
