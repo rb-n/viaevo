@@ -34,7 +34,35 @@ Each program within a generation is executed multiple times (figure above) with 
 
 ### Simple programs
 
-### Handwritten digit recognition
+#### Guess value ([000_guess_value](examples/000_guess_value/README.md))
+
+Routine success has been achieved in evolving programs assigning a specific value to the `results[1]` variable when starting with the [simple_small](elfs/simple_small.c) template program. The success rate of achieving the maximum score within 1,000 generation depended on the value being "guessed" as shown in the table below. (The value 1,431,655,765 was chosen as its binary representation consists of alternating `0`s and `1`s and the score is based on the number of matching bits between the predicted and expected values.) The success rates below are based on 100 trials per value to be "guessed".
+
+| Value to guess: | 0 | 1 | 2 | 3 | 4 | 5 | 42 | 1,431,655,765 |
+| --: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: |
+| Succes rate: | 93% | 58% | 26% | 21% | 27% | 18% | 21% | 6% |
+
+The top plots below show the progressions of the score of the best program across 100 evolution trials. Trials were stopped at 1,000 generations if the maximum possible score was not achieved by this point. The bottom plots show the frequencies of completing the evolution trials (reaching the maximum score or stopping at 1,000 generations otherwise) within a specified number of generations.
+
+![plots_guess_value](plots_guess_value.png)
+
+No success has been observed when all instructions in the evolvable code of the starting template program were set to `nop` (no operation) instructions at the start of the evolution. The scores remained stubbornly at `0` throughout generations across multiple evolution trials. It appears to be "difficult" to evolve functionality that modifies global variables from all `nop` instructions. Starting with a template program having at least assignments between unrelated `dummy` variables (such as in the [simple_small](elfs/simple_small.c) template program) seems essential to enable progress in a reasonable number of generations.
+
+#### Copy value ([001_copy_value](examples/001_copy_value/README.md))
+
+Routine success has been achieved in evolving programs that copy a value from `inputs` to the `results[1]` variable when starting with the [simple_small](elfs/simple_small.c) template program. There may be multiple copies of the value to be copied in the `inputs` variable. The success rate of achieving the maximum score within 1,000 generation depended on the number of copies of the value in `inputs` as shown in the table below. The success rates are based on 100 trials per the number of copies of the value in `inputs`.
+
+| Number of copies in inputs: | 1 | 2 | 4 | 10 | 20 | 40 | 100 |
+| --: | :-: | :-: | :-: | :-: | :-: | :-: | :-: |
+| Succes rate: | 19% | 26% | 39% | 53% | 70% | 70% | 76% |
+
+The top plots below show the progressions of the score of the best program across 100 evolution trials. Trials were stopped at 1,000 generations if the maximum possible score was not achieved by this point. The bottom plots show the frequencies of completing the evolution trials (reaching the maximum score or stopping at 1,000 generations otherwise) within a specified number of generations.
+
+![plots_copy_value](plots_copy_value.png)
+
+### Handwritten digit recognition ([100_mnist_digits](examples/100_mnist_digits/README.md))
+
+Routine success has been achieved in evolving programs that predict digit values in the range from `0` to `9` whe starting with the [intermediate_medium](elfs/intermediate_medium.c) template program. Accuracies greater than `10%` (what would correspond to a random "guess") were also observed for multiple trials with the best accuracy being ~22% (predictions were not deterministic for some inputs here). An accuracy of 22% pales in comparison to accuracies exceeding 99% for common machine learning approaches[^LeCunMNIST]. However, doing better than random here may suggest that using this genetic programming approach may not be completely hopeless. (This is still a work in progress.)
 
 ## Examples
 
@@ -73,3 +101,5 @@ Each program within a generation is executed multiple times (figure above) with 
 [^Katoch2021]: Katoch, S., Chauhan, S. S. & Kumar, V. A review on genetic algorithm: past, present, and future. Multimed Tools Appl 80, 8091–8126 (2021). https://doi.org/10.1007/s11042-020-10139-6
 
 [^Runarsson2000]: Runarsson, T. P. & Xin Yao. Stochastic ranking for constrained evolutionary optimization. IEEE Trans. Evol. Computat. 4, 284–294 (2000). https://doi.org/10.1109/4235.873238
+
+[^LeCunMNIST]: http://yann.lecun.com/exdb/mnist/
