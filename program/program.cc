@@ -166,11 +166,11 @@ void Program::InitializeElfSymbolData() {
   if (nread != ehdr.e_shnum * ehdr.e_shentsize)
     myfail("read shdrs failed");
 
-    // for (auto &shdr : shdrs) {
-    //   printf("name: %d\n", shdr.sh_name);
-    // }
+  // for (auto &shdr : shdrs) {
+  //   printf("name: %d\n", shdr.sh_name);
+  // }
 
-    // Read the section header string table.
+  // Read the section header string table.
 #define SBUF_SIZE 512
   char sbuf[SBUF_SIZE];
   if (shdrs[ehdr.e_shstrndx].sh_size >= sizeof(sbuf))
@@ -322,11 +322,12 @@ int Program::MonitorElfProcess(pid_t elf_pid, int max_ptrace_stops) {
       // printf("exited, status=%d\n", last_exit_status_);
     } else if (WIFSIGNALED(status)) {
       last_term_signal_ = WTERMSIG(status);
-      // printf("killed by signal %d\n", last_signal_);
+      // printf("killed by signal %d\n", last_term_signal_);
     } else if (WIFSTOPPED(status)) {
       ++ptrace_stops_count;
       last_stop_signal_ = WSTOPSIG(status);
-      // printf("%4d stopped by signal %d", ptrace_stops_count, last_signal_);
+      // printf("%4d stopped by signal %d", ptrace_stops_count,
+      // last_stop_signal_);
 
       if (ptrace(PTRACE_GETREGS, elf_pid, 0, &regs) == -1) {
         // myfail("PTRACE_GETREGS failed");
@@ -429,8 +430,13 @@ void Program::RunElfProcess() {
 
   // These were added one by one by looking into syslog after "killed by
   // signal 31" failures.
+  // The syscall sequence can also be made visible via unit tests
+  // (program_test.cc) by uncommenting the corresponding printf statements in
+  // MonitorElfProcess above. Useful if the compiler/linker adds more syscalls
+  // to elfs and the unit tests start failing.
   seccomp_rule_add(ctx, SCMP_ACT_ALLOW, 322, 0); // stub_execveat
   seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(brk), 0);
+  seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(fstat), 0);
   seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(mmap), 0);
   seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(access), 0);
   seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(openat), 0);

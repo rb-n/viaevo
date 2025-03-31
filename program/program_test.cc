@@ -34,7 +34,9 @@ TEST(ProgramTest, CreateExecuteSimpleSmall) {
   // Execute the elf, should be terminated when 'attempting' exit.
   int ptrace_stops_count_default = program->Execute();
   EXPECT_EQ(program->last_syscall(), 231)
-      << "Last syscall should be exit for 'default' Execute (#1)";
+      << "Last syscall should be exit for 'default' Execute (#1)\nMay want to "
+         "add this syscall to allowed seccomp rules in program.cc if this "
+         "syscall was newly added to elfs by a compiler/linker.";
   EXPECT_NE(program->last_rip_offset(), -1)
       << "Last rip offset should not be -1 for 'default' Execute (#1)";
   EXPECT_EQ(program->last_exit_status(), -9999)
@@ -72,7 +74,9 @@ TEST(ProgramTest, CreateExecuteSimpleSmall) {
   EXPECT_GT(ptrace_stops_count_full, 0)
       << "Too few ptrace stops for 'full' Execute (#3)";
   EXPECT_EQ(program->last_syscall(), 231)
-      << "last_syscall should be exit for 'full' Execute (#3)";
+      << "Last syscall should be exit for 'full' Execute (#3)\nMay want to "
+         "add this syscall to allowed seccomp rules in program.cc if this "
+         "syscall was newly added to elfs by a compiler/linker.";
   EXPECT_EQ(program->last_exit_status(), 0)
       << "Last exit status should be 0 for 'full' Execute (#3)";
   EXPECT_EQ(program->last_term_signal(), -1)
@@ -112,7 +116,9 @@ TEST(ProgramTest, CreateExecuteSimpleMedium) {
   // Execute the elf, should be terminated when 'attempting' exit.
   int ptrace_stops_count_default = program->Execute();
   EXPECT_EQ(program->last_syscall(), 231)
-      << "Last syscall should be exit for 'default' Execute (#1)";
+      << "Last syscall should be exit for 'default' Execute (#1)\nMay want to "
+         "add this syscall to allowed seccomp rules in program.cc if this "
+         "syscall was newly added to elfs by a compiler/linker.";
   EXPECT_NE(program->last_rip_offset(), -1)
       << "Last rip offset should not be -1 for 'default' Execute (#1)";
   EXPECT_EQ(program->last_exit_status(), -9999)
@@ -150,7 +156,9 @@ TEST(ProgramTest, CreateExecuteSimpleMedium) {
   EXPECT_GT(ptrace_stops_count_full, 0)
       << "Too few ptrace stops for 'full' Execute (#3)";
   EXPECT_EQ(program->last_syscall(), 231)
-      << "last_syscall should be exit for 'full' Execute (#3)";
+      << "Last syscall should be exit for 'full' Execute (#3)\nMay want to "
+         "add this syscall to allowed seccomp rules in program.cc if this "
+         "syscall was newly added to elfs by a compiler/linker.";
   EXPECT_EQ(program->last_exit_status(), 0)
       << "Last exit status should be 0 for 'full' Execute (#3)";
   EXPECT_EQ(program->last_term_signal(), -1)
@@ -190,7 +198,9 @@ TEST(ProgramTest, CreateExecuteIntermediateSmall) {
   // Execute the elf, should be terminated when 'attempting' exit.
   int ptrace_stops_count_default = program->Execute();
   EXPECT_EQ(program->last_syscall(), 231)
-      << "Last syscall should be exit for 'default' Execute (#1)";
+      << "Last syscall should be exit for 'default' Execute (#1)\nMay want to "
+         "add this syscall to allowed seccomp rules in program.cc if this "
+         "syscall was newly added to elfs by a compiler/linker.";
   EXPECT_NE(program->last_rip_offset(), -1)
       << "Last rip offset should not be -1 for 'default' Execute (#1)";
   EXPECT_EQ(program->last_exit_status(), -9999)
@@ -228,7 +238,9 @@ TEST(ProgramTest, CreateExecuteIntermediateSmall) {
   EXPECT_GT(ptrace_stops_count_full, 0)
       << "Too few ptrace stops for 'full' Execute (#3)";
   EXPECT_EQ(program->last_syscall(), 231)
-      << "last_syscall should be exit for 'full' Execute (#3)";
+      << "Last syscall should be exit for 'full' Execute (#3)\nMay want to "
+         "add this syscall to allowed seccomp rules in program.cc if this "
+         "syscall was newly added to elfs by a compiler/linker.";
   EXPECT_EQ(program->last_exit_status(), 0)
       << "Last exit status should be 0 for 'full' Execute (#3)";
   EXPECT_EQ(program->last_term_signal(), -1)
@@ -269,7 +281,9 @@ TEST(ProgramTest, CreateExecuteIntermediateMedium) {
   // Execute the elf, should be terminated when 'attempting' exit.
   int ptrace_stops_count_default = program->Execute();
   EXPECT_EQ(program->last_syscall(), 231)
-      << "Last syscall should be exit for 'default' Execute (#1)";
+      << "Last syscall should be exit for 'default' Execute (#1)\nMay want to "
+         "add this syscall to allowed seccomp rules in program.cc if this "
+         "syscall was newly added to elfs by a compiler/linker.";
   EXPECT_NE(program->last_rip_offset(), -1)
       << "Last rip offset should not be -1 for 'default' Execute (#1)";
   EXPECT_EQ(program->last_exit_status(), -9999)
@@ -307,7 +321,9 @@ TEST(ProgramTest, CreateExecuteIntermediateMedium) {
   EXPECT_GT(ptrace_stops_count_full, 0)
       << "Too few ptrace stops for 'full' Execute (#3)";
   EXPECT_EQ(program->last_syscall(), 231)
-      << "last_syscall should be exit for 'full' Execute (#3)";
+      << "Last syscall should be exit for 'full' Execute (#3)\nMay want to "
+         "add this syscall to allowed seccomp rules in program.cc if this "
+         "syscall was newly added to elfs by a compiler/linker.";
   EXPECT_EQ(program->last_exit_status(), 0)
       << "Last exit status should be 0 for 'full' Execute (#3)";
   EXPECT_EQ(program->last_term_signal(), -1)
@@ -810,7 +826,10 @@ TEST(ProgramTest, CreateExecuteInfLoop) {
   EXPECT_EQ(program->last_term_signal(), 9)
       << "Last term signal should be 9 (SIGKILL) for 'default' Execute (#1)";
   EXPECT_EQ(program->last_stop_signal(), 14)
-      << "Last stop signal should be 14 (SIGALRM) for 'default' Execute (#1)";
+      << "Last stop signal should be 14 (SIGALRM) for 'default' Execute "
+         "(#1)\nMay want to add this syscall to allowed seccomp rules in "
+         "program.cc if this syscall was newly added to elfs by a "
+         "compiler/linker.";
   // main() in //elfs:simple_small executes therefore the value of results[0] is
   // changed to 20.
   EXPECT_EQ(program->last_results(), default_results)
