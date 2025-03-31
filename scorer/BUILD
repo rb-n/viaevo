@@ -21,6 +21,6 @@ cc_test(
     srcs = ["scorer_mock_test.cc"],
     deps = [
         ":scorer_mock",
-        "@com_google_googletest//:gtest_main",
+        "@googletest//:gtest_main",
     ],
 )

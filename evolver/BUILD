@@ -23,6 +23,6 @@ cc_test(
         "//program",
         "//scorer:scorer_mock",
         "//util:random_mock",
-        "@com_google_googletest//:gtest_main",
+        "@googletest//:gtest_main",
     ],
 )

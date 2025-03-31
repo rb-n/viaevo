@@ -26,7 +26,7 @@ cc_test(
     deps = [
         ":mutator_point_random",
         "//util:random_mock",
-        "@com_google_googletest//:gtest_main",
+        "@googletest//:gtest_main",
     ],
 )
 
@@ -49,7 +49,7 @@ cc_test(
     deps = [
         ":mutator_point_last_instruction",
         "//util:random_mock",
-        "@com_google_googletest//:gtest_main",
+        "@googletest//:gtest_main",
     ],
 )
 
@@ -73,7 +73,7 @@ cc_test(
     deps = [
         ":mutator_recombine_random",
         "//util:random_mock",
-        "@com_google_googletest//:gtest_main",
+        "@googletest//:gtest_main",
     ],
 )
 
@@ -100,7 +100,7 @@ cc_test(
     deps = [
         ":mutator_recombine_plain_elf",
         "//util:random_mock",
-        "@com_google_googletest//:gtest_main",
+        "@googletest//:gtest_main",
     ],
 )
 
@@ -133,6 +133,6 @@ cc_test(
         ":mutator_point_random",
         ":mutator_recombine_random",
         "//util:random_mock",
-        "@com_google_googletest//:gtest_main",
+        "@googletest//:gtest_main",
     ],
 )

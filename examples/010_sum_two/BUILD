@@ -14,7 +14,7 @@ cc_test(
     deps = [
         ":scorer_sum_two",
         "//util:random_mock",
-        "@com_google_googletest//:gtest_main",
+        "@googletest//:gtest_main",
     ],
 )
 

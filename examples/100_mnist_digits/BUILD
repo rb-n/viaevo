@@ -15,7 +15,7 @@ cc_test(
     deps = [
         ":scorer_mnist_digits",
         "//util:random_mock",
-        "@com_google_googletest//:gtest_main",
+        "@googletest//:gtest_main",
     ],
 )
 
@@ -35,8 +35,8 @@ cc_binary(
         "//mutator:mutator_point_random",
         "//mutator:mutator_recombine_plain_elf",
         "//mutator:mutator_recombine_random",
-        "@com_google_absl//absl/flags:flag",
-        "@com_google_absl//absl/flags:parse",
+        "@abseil-cpp//absl/flags:flag",
+        "@abseil-cpp//absl/flags:parse",
     ],
 )
 
@@ -50,7 +50,10 @@ filegroup(
 
 filegroup(
     name = "evolved_elfs",
-    srcs = glob(["evolved_elfs/*.elf"]),
+    srcs = glob(
+        ["evolved_elfs/*.elf"],
+        allow_empty = True,
+    ),
 )
 
 cc_binary(
@@ -62,7 +65,7 @@ cc_binary(
     ],
     deps = [
         ":scorer_mnist_digits",
-        "@com_google_absl//absl/flags:flag",
-        "@com_google_absl//absl/flags:parse",
+        "@abseil-cpp//absl/flags:flag",
+        "@abseil-cpp//absl/flags:parse",
     ],
 )

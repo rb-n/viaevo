@@ -14,7 +14,7 @@ cc_test(
     srcs = ["random_test.cc"],
     deps = [
         ":random",
-        "@com_google_googletest//:gtest_main",
+        "@googletest//:gtest_main",
     ],
 )
 
@@ -35,6 +35,6 @@ cc_test(
     srcs = ["random_mock_test.cc"],
     deps = [
         ":random_mock",
-        "@com_google_googletest//:gtest_main",
+        "@googletest//:gtest_main",
     ],
 )
