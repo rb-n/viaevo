@@ -89,12 +89,17 @@ void EvolverAdHoc::Run() {
       programs_[i]->ResetCurrentScore();
       programs_[i]->ClearResultsHistory();
     }
+    // Count SIGALRMs - timeouts due to a long running program (e.g. inf loop).
+    int sigalarms_count = 0;
     for (int j = 0; j < evaluations_per_program_; ++j) {
       scorer_.ResetInputs();
       for (int i = 0; i < mu_ + lambda_; ++i) {
         programs_[i]->SetElfInputs(scorer_.current_inputs());
         programs_[i]->Execute();
         programs_[i]->IncrementCurrentScoreBy(scorer_.Score(*programs_[i]));
+        if (programs_[i]->last_stop_signal() == 14) {
+          ++sigalarms_count;
+        }
       }
     }
 
@@ -130,7 +135,8 @@ void EvolverAdHoc::Run() {
               << max_score << ") "
               << " | rip distinct: " << rip_offset_counts.size()
               << " top: " << top_rip_offset
-              << " count: " << top_rip_offset_count << std::flush;
+              << " count: " << top_rip_offset_count
+              << " sigalrms: " << sigalarms_count << std::flush;
     if (best_overall_score < best_generation_score) {
       best_overall_score = best_generation_score;
       std::cout << "\n            | best last results: ";
