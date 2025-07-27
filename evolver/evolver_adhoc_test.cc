@@ -23,10 +23,10 @@ TEST(EvolverAdHocTest, RunSelectParents) {
   viaevo::MutatorPointRandom mutator(gen);
 
   // results_history_scores_ should be ignored by the evolver by default.
-  viaevo::ScorerMock scorer({0, 0, 5}, 10, {}, {0, 1, 2});
+  viaevo::ScorerMock scorer({0, 2, 0, 5, 0}, 20, {}, {0, 1, 2, 3, 9});
   std::vector<int> results;
 
-  viaevo::EvolverAdHoc evolver("elfs/simple_small", 2, 1, 1, scorer, mutator,
+  viaevo::EvolverAdHoc evolver("elfs/simple_small", 3, 1, 2, scorer, mutator,
                                gen, 1, 1);
 
   EXPECT_EQ(evolver.score_results_history(), false)
@@ -34,7 +34,7 @@ TEST(EvolverAdHocTest, RunSelectParents) {
 
   auto &programs = evolver.programs();
 
-  for (int i = 0; i < 3; ++i) {
+  for (int i = 0; i < 5; ++i) {
     std::vector<char> code = programs[i]->GetElfCode();
     EXPECT_TRUE(code.size() > 0);
     // Code should not be all nop by default.
@@ -44,23 +44,29 @@ TEST(EvolverAdHocTest, RunSelectParents) {
 
   EXPECT_EQ(programs[0]->track_results_history(), false);
 
-  EXPECT_EQ(programs.size(), 3); // mu + lambda
+  EXPECT_EQ(programs.size(), 5); // mu + lambda
 
   EXPECT_EQ(programs[0]->current_score(), 0);
   EXPECT_EQ(programs[1]->current_score(), 0);
   EXPECT_EQ(programs[2]->current_score(), 0);
+  EXPECT_EQ(programs[3]->current_score(), 0);
+  EXPECT_EQ(programs[4]->current_score(), 0);
 
   evolver.Run();
 
   EXPECT_EQ(programs[0]->current_score(), 0);
-  EXPECT_EQ(programs[1]->current_score(), 0);
-  EXPECT_EQ(programs[2]->current_score(), 5);
+  EXPECT_EQ(programs[1]->current_score(), 2);
+  EXPECT_EQ(programs[2]->current_score(), 0);
+  EXPECT_EQ(programs[3]->current_score(), 5);
+  EXPECT_EQ(programs[4]->current_score(), 0);
 
   evolver.SelectParents();
 
   EXPECT_EQ(programs[0]->current_score(), 5);
-  EXPECT_EQ(programs[1]->current_score(), 0);
+  EXPECT_EQ(programs[1]->current_score(), 2);
   EXPECT_EQ(programs[2]->current_score(), 0);
+  EXPECT_EQ(programs[3]->current_score(), 0);
+  EXPECT_EQ(programs[4]->current_score(), 0);
 }
 
 TEST(EvolverAdHocTest, ScoreResultsHistory) {
@@ -68,7 +74,7 @@ TEST(EvolverAdHocTest, ScoreResultsHistory) {
 
   viaevo::MutatorPointRandom mutator(gen);
 
-  viaevo::ScorerMock scorer({0, 0, 5}, 10, {}, {0, 1, 2});
+  viaevo::ScorerMock scorer({0, 0, 5}, 10, {}, {0, 0, 1, 1, 2, 2});
   std::vector<int> results;
 
   viaevo::EvolverAdHoc evolver("elfs/simple_small", 2, 0, 1, scorer, mutator,

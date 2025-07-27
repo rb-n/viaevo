@@ -70,7 +70,11 @@ protected:
   int max_generations_ = 10'000;
 
   // When set to true, score Programs also on their results_history_ after all
-  // evaluations in a generation are completed.
+  // evaluations in a generation are completed This is intended for multiple
+  // executions of the same program on different inputs. The intention is to
+  // "reward" programs that produce different results on different inputs to set
+  // them apart from programs producing the same result on different input (try
+  // to steer away from the "broken clock is right twice a day" phenomenon).
   bool score_results_history_ = false;
 
   // Prefix to prepend to output file names (e.g. for saved evolved elfs).

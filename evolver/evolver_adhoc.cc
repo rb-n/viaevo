@@ -6,6 +6,7 @@
 #include "evolver_adhoc.h"
 
 #include <algorithm>
+#include <cassert>
 #include <iomanip>
 #include <iostream>
 #include <string>
@@ -64,6 +65,15 @@ void EvolverAdHoc::Run() {
   long long best_overall_score = 0;
   long long max_score = evaluations_per_program_ * scorer_.MaxScore() +
                         scorer_.MaxScoreResultsHistory();
+
+  // Current scores set by the scorer_ reflect an accumulated performance of
+  // programs on recent (sets of) inputs.
+  std::vector<long long> current_scores_(mu_ + lambda_, 0);
+  std::vector<std::vector<std::vector<int>>> results_history_;
+  if (score_results_history_) {
+    results_history_.resize(mu_ + lambda_);
+  }
+
   while (current_generation_ < max_generations_) {
     ++current_generation_;
 
@@ -85,6 +95,13 @@ void EvolverAdHoc::Run() {
     // Stage 3 (EvaluatePrograms): Update programs_ inputs, execute and score
     // programs_.
     // -----------------------------------------
+    std::fill(current_scores_.begin(), current_scores_.end(), 0);
+    if (score_results_history_) {
+      for (auto &results : results_history_) {
+        results.clear();
+      }
+    }
+
     for (int i = 0; i < mu_ + lambda_; ++i) {
       programs_[i]->ResetCurrentScore();
       programs_[i]->ClearResultsHistory();
@@ -96,7 +113,12 @@ void EvolverAdHoc::Run() {
       for (int i = 0; i < mu_ + lambda_; ++i) {
         programs_[i]->SetElfInputs(scorer_.current_inputs());
         programs_[i]->Execute();
-        programs_[i]->IncrementCurrentScoreBy(scorer_.Score(*programs_[i]));
+        long long score = scorer_.Score(*programs_[i]);
+        programs_[i]->IncrementCurrentScoreBy(score);
+        current_scores_[i] += score;
+        if (score_results_history_) {
+          results_history_[i].push_back(programs_[i]->last_results());
+        }
         if (programs_[i]->last_stop_signal() == 14) {
           ++sigalarms_count;
         }
@@ -107,6 +129,7 @@ void EvolverAdHoc::Run() {
       for (int i = 0; i < mu_ + lambda_; ++i) {
         programs_[i]->IncrementCurrentScoreBy(
             scorer_.ScoreResultsHistory(programs_[i]->results_history()));
+        current_scores_[i] += scorer_.ScoreResultsHistory(results_history_[i]);
       }
     }
 
@@ -117,6 +140,7 @@ void EvolverAdHoc::Run() {
     std::vector<int> best_generation_results;
     int best_generation_program_index = -1;
     for (int i = 0; i < mu_ + lambda_; ++i) {
+      assert(programs_[i]->current_score() == current_scores_[i]);
       if (best_generation_score < programs_[i]->current_score()) {
         best_generation_score = programs_[i]->current_score();
         best_generation_results = programs_[i]->last_results();
