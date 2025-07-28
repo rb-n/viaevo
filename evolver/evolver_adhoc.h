@@ -33,7 +33,7 @@ public:
                std::string output_filename_prefix = "",
                bool initialize_programs_to_all_nops = false);
   // Selects mu_ parents by bringing them to the front of programs_.
-  virtual void SelectParents();
+  virtual void SelectParents(std::vector<long long> &current_scores);
   // Runs the evolution.
   virtual void Run();
 

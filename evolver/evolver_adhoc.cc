@@ -7,8 +7,10 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cstddef>
 #include <iomanip>
 #include <iostream>
+#include <numeric>
 #include <string>
 #include <unordered_map>
 
@@ -45,17 +47,27 @@ EvolverAdHoc::EvolverAdHoc(std::string elf_filename, int mu, int phi,
   }
 }
 
-void EvolverAdHoc::SelectParents() {
-  // Shuffle programs_ to prevent breaking ties the same way in each
-  // generation.
-  std::shuffle(programs_.begin(), programs_.end(), gen_.gen());
-  // Bring the (mu_ - phi_) parents (selected on score) to the "front" of
-  // programs_.
-  std::nth_element(programs_.begin(), programs_.begin() + (mu_ - phi_) - 1,
-                   programs_.end(), ProgramCompare());
-  // Shuffle the elements after (mu_ - phi_) to obtain the remaining phi_
-  // parents at random.
-  std::shuffle(programs_.begin() + (mu_ - phi_), programs_.end(), gen_.gen());
+void EvolverAdHoc::SelectParents(std::vector<long long> &scores) {
+  std::size_t n = programs_.size();
+  assert(n == scores.size());
+
+  std::vector<int> indices(n, 0);
+  std::iota(indices.begin(), indices.end(), 0);
+
+  // Use stable_sort instead of e.g. nth_element to simplify unit testing.
+  std::stable_sort(
+      indices.begin(), indices.end(),
+      [&scores](int a, int b) -> bool { return scores[a] > scores[b]; });
+
+  // Should be possible to do this without the extra space, e.g. cyclic sort.
+  std::vector<std::shared_ptr<Program>> aux;
+  for(auto i: indices) {
+    aux.push_back(programs_[i]);
+  }
+
+  for(std::size_t i = 0; i < n; ++i) {
+    programs_[i] = aux[i];
+  }
 }
 
 // TODO: Put the three stages in individual member functions and add unit
@@ -68,10 +80,10 @@ void EvolverAdHoc::Run() {
 
   // Current scores set by the scorer_ reflect an accumulated performance of
   // programs on recent (sets of) inputs.
-  std::vector<long long> current_scores_(mu_ + lambda_, 0);
-  std::vector<std::vector<std::vector<int>>> results_history_;
+  std::vector<long long> current_scores(mu_ + lambda_, 0);
+  std::vector<std::vector<std::vector<int>>> results_history;
   if (score_results_history_) {
-    results_history_.resize(mu_ + lambda_);
+    results_history.resize(mu_ + lambda_);
   }
 
   while (current_generation_ < max_generations_) {
@@ -80,7 +92,7 @@ void EvolverAdHoc::Run() {
     // Stage 1 (SelectParents): Bring the mu_ parents to the "front" of
     // programs_.
     // --------------------------------------------------------------
-    SelectParents();
+    SelectParents(current_scores);
     // Stage 2 (CreateOffspring): Create lambda_ offspring in the last lambda_
     // elements of programs_ using the first mu_ elements of programs as
     // parents.
@@ -91,13 +103,15 @@ void EvolverAdHoc::Run() {
       mutator_.Mutate(programs_[mu_ + i], programs_[gen_() % mu_],
                       programs_[gen_() % mu_]);
     }
+    // Note: Consider shuffling programs in the vector, would complicate unit
+    // testing though.
 
     // Stage 3 (EvaluatePrograms): Update programs_ inputs, execute and score
     // programs_.
     // -----------------------------------------
-    std::fill(current_scores_.begin(), current_scores_.end(), 0);
+    std::fill(current_scores.begin(), current_scores.end(), 0);
     if (score_results_history_) {
-      for (auto &results : results_history_) {
+      for (auto &results : results_history) {
         results.clear();
       }
     }
@@ -115,9 +129,9 @@ void EvolverAdHoc::Run() {
         programs_[i]->Execute();
         long long score = scorer_.Score(*programs_[i]);
         programs_[i]->IncrementCurrentScoreBy(score);
-        current_scores_[i] += score;
+        current_scores[i] += score;
         if (score_results_history_) {
-          results_history_[i].push_back(programs_[i]->last_results());
+          results_history[i].push_back(programs_[i]->last_results());
         }
         if (programs_[i]->last_stop_signal() == 14) {
           ++sigalarms_count;
@@ -129,7 +143,7 @@ void EvolverAdHoc::Run() {
       for (int i = 0; i < mu_ + lambda_; ++i) {
         programs_[i]->IncrementCurrentScoreBy(
             scorer_.ScoreResultsHistory(programs_[i]->results_history()));
-        current_scores_[i] += scorer_.ScoreResultsHistory(results_history_[i]);
+        current_scores[i] += scorer_.ScoreResultsHistory(results_history[i]);
       }
     }
 
@@ -140,7 +154,7 @@ void EvolverAdHoc::Run() {
     std::vector<int> best_generation_results;
     int best_generation_program_index = -1;
     for (int i = 0; i < mu_ + lambda_; ++i) {
-      assert(programs_[i]->current_score() == current_scores_[i]);
+      assert(programs_[i]->current_score() == current_scores[i]);
       if (best_generation_score < programs_[i]->current_score()) {
         best_generation_score = programs_[i]->current_score();
         best_generation_results = programs_[i]->last_results();
