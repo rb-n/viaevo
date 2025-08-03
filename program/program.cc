@@ -134,8 +134,6 @@ void Program::SaveElf(const char *filename) {
   close(fd_to);
 }
 
-void Program::ClearResultsHistory() { results_history_.clear(); }
-
 void Program::InitializeElfSymbolData() {
   if (elf_mem_fd_ == -1)
     myfail("invalid elf_mem_fd_");
@@ -524,10 +522,6 @@ void Program::ReadLastResultsAndLastRipOffsetFromElfProcess(
   nread = process_vm_readv(elf_pid, local, 1, remote, 1, 0);
   if (nread != (ssize_t)symbol_data_.results_st_size_)
     myfail("process_vm_readv failed");
-
-  if (track_results_history_) {
-    results_history_.push_back(last_results_);
-  }
 }
 
 void Program::ClearLastState() {
@@ -625,12 +619,6 @@ void Program::SetElfInputs(const std::vector<int> &elf_inputs) {
       write(elf_mem_fd_, elf_inputs.data(), elf_inputs.size() * element_size);
   if (nwritten != (off_t)(elf_inputs.size() * element_size))
     myfail("setting elf inputs failed");
-}
-
-void Program::ResetCurrentScore() { current_score_ = 0; }
-
-void Program::IncrementCurrentScoreBy(long long increment) {
-  current_score_ += increment;
 }
 
 } // namespace viaevo

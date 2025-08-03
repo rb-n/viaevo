@@ -63,20 +63,10 @@ public:
   // variable.
   void SetElfInputs(const std::vector<int> &elf_inputs);
 
-  // Resets current_score_ to 0. E.g. at the beginning of (multiple) round(s) of
-  // evaluation of the program on different inputs.
-  void ResetCurrentScore();
-  // Increment current_score_ by an increment. Called by a Scorer after an
-  // evaluation of the Program on a single set of inputs.
-  void IncrementCurrentScoreBy(long long increment);
-
   // Save the current elf in the memory file referenced by the elf_mem_fd_ file
   // descriptor into filename.
   void SaveElf(const char *filename);
-  // Clear results_history_.
-  void ClearResultsHistory();
 
-  long long current_score() { return current_score_; }
   unsigned long long last_syscall() const { return last_syscall_; }
   unsigned long long last_rip_offset() const { return last_rip_offset_; }
   int last_exit_status() const { return last_exit_status_; }
@@ -84,11 +74,6 @@ public:
   int last_stop_signal() const { return last_stop_signal_; }
   const std::vector<int> &last_results() const { return last_results_; }
   int expected_ptrace_stops() const { return expected_ptrace_stops_; }
-  bool track_results_history() const { return track_results_history_; };
-  void set_track_results_history(bool t) { track_results_history_ = t; };
-  const std::vector<std::vector<int>> &results_history() {
-    return results_history_;
-  };
 
 private:
   // Copies the ELF from filename to an in memory file referenced by the
@@ -142,19 +127,6 @@ protected:
 
   // Results from the last completed execution of the program.
   std::vector<int> last_results_;
-
-  // Results over consecutive executions can be stored in results_history_ (if
-  // track_results_history_ is set to true). This is intended for multiple
-  // executions of the same program on different inputs. The intention is to
-  // "reward" programs that produce different results on different inputs to set
-  // them apart from programs producing the same result on different input (try
-  // to steer away from the "broken clock is right twice a day" phenomenon).
-  bool track_results_history_ = false;
-  std::vector<std::vector<int>> results_history_;
-
-  // Current score set by e.g. a Scorer reflects an accumulated performance of
-  // the program on recent (sets of) inputs.
-  long long current_score_ = 0;
 
   // ELF symbol table values and sizes for main and results.
   struct SymbolData {

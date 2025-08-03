@@ -41,14 +41,8 @@ TEST(ScorerMockTest, ScoreResultsHistory) {
   std::vector<int> results;
 
   viaevo::Program program;
-  EXPECT_EQ(scorer.ScoreResultsHistory(program.results_history()), 7);
-  EXPECT_EQ(scorer.ScoreResultsHistory(program.results_history()), 17);
-  EXPECT_EQ(scorer.ScoreResultsHistory(program.results_history()), 0);
-  EXPECT_EQ(scorer.ScoreResultsHistory(program.results_history()), 5);
-  EXPECT_EQ(scorer.ScoreResultsHistory(program.results_history()), 7);
-  EXPECT_EQ(scorer.ScoreResultsHistory(program.results_history()), 17);
-  EXPECT_EQ(scorer.ScoreResultsHistory(program.results_history()), 0);
-  EXPECT_EQ(scorer.ScoreResultsHistory(program.results_history()), 5);
+  // TODO: This test was gutted when scoring was moved from programs to the
+  // evolver. Add an appropriate testing here.
 
   EXPECT_EQ(scorer.MaxScore(), 23);
 
