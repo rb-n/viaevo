@@ -19,6 +19,9 @@ public:
   void set_last_results(const std::vector<int> &results) {
     last_results_ = results;
   }
+  void set_last_stop_signal(int signal) {
+    last_stop_signal_ = signal;
+  }
 };
 
 TEST(ScorerMnistDigitsTest, ResetInputs) {
@@ -337,6 +340,10 @@ TEST(ScorerMnistDigitsTest, Score) {
   scorer.ResetInputs();
   EXPECT_EQ(scorer.expected_value(), 1);
   EXPECT_EQ(scorer.Score(program), 1'000'000);
+
+  // Penalize long running programs.
+  program.set_last_stop_signal(14); // SIGALRM
+  EXPECT_EQ(scorer.Score(program), 0);
 }
 
 TEST(ScorerMnistDigitsTest, ScoreResultsHistory) {

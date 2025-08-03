@@ -22,6 +22,12 @@ ScorerMnistDigits::ScorerMnistDigits(Random &gen, std::string images_filename,
 }
 
 long long ScorerMnistDigits::Score(const Program &program) const {
+  if (program.last_stop_signal() == 14) {
+    // Penalize long running programs (receiving SIGALRM set up in
+    // Program::RunElfProcess) - e.g. due to an infinite loop.
+    return 0;
+  }
+
   const std::vector<int> &results = program.last_results();
   long long score = 0;
 
