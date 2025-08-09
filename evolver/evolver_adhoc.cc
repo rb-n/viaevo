@@ -6,8 +6,10 @@
 #include "evolver_adhoc.h"
 
 #include <algorithm>
+#include <atomic>
 #include <cassert>
 #include <cstddef>
+#include <execution>
 #include <iomanip>
 #include <iostream>
 #include <numeric>
@@ -106,12 +108,15 @@ void EvolverAdHoc::Run() {
     }
 
     // Count SIGALRMs - timeouts due to a long running program (e.g. inf loop).
-    int sigalarms_count = 0;
+    std::atomic<int> sigalarms_count(0);
     for (int j = 0; j < evaluations_per_program_; ++j) {
       scorer_.ResetInputs();
       for (int i = 0; i < mu_ + lambda_; ++i) {
         programs_[i]->SetElfInputs(scorer_.current_inputs());
-        programs_[i]->Execute();
+      }
+      std::for_each(std::execution::par, programs_.begin(), programs_.end(),
+                    [](std::shared_ptr<Program> &p) { p->Execute(); });
+      for (int i = 0; i < mu_ + lambda_; ++i) {
         long long score = scorer_.Score(*programs_[i]);
         current_scores[i] += score;
         if (score_results_history_) {

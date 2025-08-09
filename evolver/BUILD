@@ -2,6 +2,7 @@ cc_library(
     name = "evolver_adhoc",
     srcs = ["evolver_adhoc.cc"],
     hdrs = ["evolver_adhoc.h"],
+    linkopts = ["-ltbb"],
     visibility = [
         "//examples:__subpackages__",
     ],
