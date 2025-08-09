@@ -109,13 +109,15 @@ void EvolverAdHoc::Run() {
 
     // Count SIGALRMs - timeouts due to a long running program (e.g. inf loop).
     std::atomic<int> sigalarms_count(0);
+    std::vector<int> indices(mu_ + lambda_, 0);
+    std::iota(indices.begin(), indices.end(), 0);
     for (int j = 0; j < evaluations_per_program_; ++j) {
       scorer_.ResetInputs();
-      for (int i = 0; i < mu_ + lambda_; ++i) {
-        programs_[i]->SetElfInputs(scorer_.current_inputs());
-      }
-      std::for_each(std::execution::par, programs_.begin(), programs_.end(),
-                    [](std::shared_ptr<Program> &p) { p->Execute(); });
+      std::for_each(std::execution::par, indices.begin(), indices.end(),
+                    [this](int i) {
+                      programs_[i]->SetElfInputs(scorer_.current_inputs());
+                      programs_[i]->Execute();
+                    });
       for (int i = 0; i < mu_ + lambda_; ++i) {
         long long score = scorer_.Score(*programs_[i]);
         current_scores[i] += score;
@@ -154,9 +156,8 @@ void EvolverAdHoc::Run() {
       }
     }
     std::cout << "\33[2K\rG: " << std::setw(8) << current_generation_
-              << " | best score: " << best_generation_score << " (overall: "
-              << std::max(best_overall_score, best_generation_score) << "/"
-              << max_score << ") "
+              << " | best score: " << best_generation_score
+              << " (max: " << max_score << ") "
               << " | rip distinct: " << rip_offset_counts.size()
               << " top: " << top_rip_offset
               << " count: " << top_rip_offset_count
