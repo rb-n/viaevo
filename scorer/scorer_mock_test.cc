@@ -34,15 +34,16 @@ TEST(ScorerMockTest, Score) {
 }
 
 TEST(ScorerMockTest, ScoreResultsHistory) {
-  viaevo::ScorerMock scorer({1}, 23, {91}, {7, 17, 0, 5});
+  viaevo::ScorerMock scorer({1}, 23, {91}, {7, 17, 5});
 
   EXPECT_EQ(scorer.current_inputs(), std::vector<int>{91});
 
-  std::vector<int> results;
-
-  viaevo::Program program;
-  // TODO: This test was gutted when scoring was moved from programs to the
-  // evolver. Add an appropriate testing here.
+  EXPECT_EQ(scorer.ScoreResultsHistory({}), 7);
+  EXPECT_EQ(scorer.ScoreResultsHistory({}), 17);
+  EXPECT_EQ(scorer.ScoreResultsHistory({}), 5);
+  EXPECT_EQ(scorer.ScoreResultsHistory({}), 7);
+  EXPECT_EQ(scorer.ScoreResultsHistory({}), 17);
+  EXPECT_EQ(scorer.ScoreResultsHistory({}), 5);
 
   EXPECT_EQ(scorer.MaxScore(), 23);
 

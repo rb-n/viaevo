@@ -22,6 +22,7 @@ cc_test(
         ":evolver_adhoc",
         "//mutator:mutator_point_random",
         "//program",
+        "//scorer:scorer_marked_mock",
         "//scorer:scorer_mock",
         "//util:random_mock",
         "@googletest//:gtest_main",

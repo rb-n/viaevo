@@ -6,6 +6,7 @@ cc_binary(
         "//examples:__subpackages__",
         "//mutator:__pkg__",
         "//program:__pkg__",
+        "//scorer:__pkg__",
     ],
 )
 

@@ -113,21 +113,20 @@ void EvolverAdHoc::Run() {
     std::iota(indices.begin(), indices.end(), 0);
     for (int j = 0; j < evaluations_per_program_; ++j) {
       scorer_.ResetInputs();
-      std::for_each(std::execution::par, indices.begin(), indices.end(),
-                    [this](int i) {
-                      programs_[i]->SetElfInputs(scorer_.current_inputs());
-                      programs_[i]->Execute();
-                    });
-      for (int i = 0; i < mu_ + lambda_; ++i) {
-        long long score = scorer_.Score(*programs_[i]);
-        current_scores[i] += score;
-        if (score_results_history_) {
-          results_history[i].push_back(programs_[i]->last_results());
-        }
-        if (programs_[i]->last_stop_signal() == 14) {
-          ++sigalarms_count;
-        }
-      }
+      std::for_each(
+          std::execution::par, indices.begin(), indices.end(),
+          [this, &current_scores, &results_history, &sigalarms_count](int i) {
+            programs_[i]->SetElfInputs(scorer_.current_inputs());
+            programs_[i]->Execute();
+            long long score = scorer_.Score(*programs_[i]);
+            current_scores[i] += score;
+            if (score_results_history_) {
+              results_history[i].push_back(programs_[i]->last_results());
+            }
+            if (programs_[i]->last_stop_signal() == 14) {
+              ++sigalarms_count;
+            }
+          });
     }
 
     if (score_results_history_) {
