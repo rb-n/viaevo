@@ -68,7 +68,7 @@ public:
   void SaveElf(const char *filename);
 
   unsigned long long last_syscall() const { return last_syscall_; }
-  unsigned long long last_rip_offset() const { return last_rip_offset_; }
+  long long last_rip_offset() const { return last_rip_offset_; }
   int last_exit_status() const { return last_exit_status_; }
   int last_term_signal() const { return last_term_signal_; }
   int last_stop_signal() const { return last_stop_signal_; }
@@ -116,7 +116,12 @@ protected:
   static constexpr unsigned long long kInvalidSyscall = 9999;
   unsigned long long last_syscall_ = kInvalidSyscall;
 
-  unsigned long long last_rip_offset_ = -1;
+  // Offset of the last observed instruction pointer (rip) relative to main.
+  // Signed so that kInvalidRipOffset (-1) is a genuine sentinel and so that
+  // out-of-main offsets can be detected via a "< 0" check (see
+  // MutatorPointLastInstruction).
+  static constexpr long long kInvalidRipOffset = -1;
+  long long last_rip_offset_ = kInvalidRipOffset;
 
   static constexpr int kInvalidExitStatus = -9999;
   int last_exit_status_ = kInvalidExitStatus;

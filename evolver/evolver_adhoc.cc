@@ -136,8 +136,8 @@ void EvolverAdHoc::Run() {
     }
 
     long long best_generation_score = 0;
-    std::unordered_map<unsigned long long, int> rip_offset_counts;
-    unsigned long long top_rip_offset = -1;
+    std::unordered_map<long long, int> rip_offset_counts;
+    long long top_rip_offset = -1;
     int top_rip_offset_count = 0;
     std::vector<int> best_generation_results;
     int best_generation_program_index = -1;
@@ -147,7 +147,7 @@ void EvolverAdHoc::Run() {
         best_generation_results = programs_[i]->last_results();
         best_generation_program_index = i;
       }
-      unsigned long long rip_offset = programs_[i]->last_rip_offset();
+      long long rip_offset = programs_[i]->last_rip_offset();
       ++rip_offset_counts[rip_offset];
       if (rip_offset_counts[rip_offset] > top_rip_offset_count) {
         top_rip_offset_count = rip_offset_counts[rip_offset];

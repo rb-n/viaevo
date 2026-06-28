@@ -15,14 +15,16 @@ MutatorPointLastInstruction::MutatorPointLastInstruction(Random &gen)
 void MutatorPointLastInstruction::Mutate(std::shared_ptr<Program> target,
                                          std::shared_ptr<Program> parent1,
                                          std::shared_ptr<Program> parent2) {
-  auto last_rip_offset = parent1->last_rip_offset();
+  long long last_rip_offset = parent1->last_rip_offset();
   std::vector<char> code = parent1->GetElfCode();
 
   // If program1's last instruction offset is outside the mutable code, revert
   // to MutatorPointRandom behavior (random bit flip anywhere in the mutable
-  // code).
-  if (last_rip_offset >= code.size() * sizeof(decltype(code)::value_type) ||
-      last_rip_offset < 0) {
+  // code). The "< 0" check (now meaningful with a signed offset) also catches
+  // the kInvalidRipOffset (-1) sentinel.
+  if (last_rip_offset < 0 ||
+      last_rip_offset >=
+          (long long)(code.size() * sizeof(decltype(code)::value_type))) {
     MutatorPointRandom::Mutate(target, parent1, parent2);
     return;
   }

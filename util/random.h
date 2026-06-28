@@ -39,12 +39,14 @@ template <class CharT, class Traits>
 std::basic_ostream<CharT, Traits> &
 operator<<(std::basic_ostream<CharT, Traits> &ost, const Random &r) {
   ost << r.gen_;
+  return ost;
 }
 
 template <class CharT, class Traits>
 std::basic_istream<CharT, Traits> &
 operator>>(std::basic_istream<CharT, Traits> &ist, Random &r) {
   ist >> r.gen_;
+  return ist;
 }
 
 } // namespace viaevo

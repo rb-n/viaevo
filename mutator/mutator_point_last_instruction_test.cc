@@ -79,4 +79,47 @@ TEST(MutatorPointLastInstructionTest, Mutate) {
   EXPECT_EQ(parent_end, target_end);
 }
 
+// When parent1 has not been executed, its last_rip_offset() is the invalid
+// sentinel (-1). With last_rip_offset_ now a signed type, the "< 0" guard in
+// MutatorPointLastInstruction::Mutate is meaningful and the mutator should fall
+// back to MutatorPointRandom behavior (a bit flip anywhere in the mutable code).
+// This is a regression test for the previous unsigned-comparison bug where the
+// "< 0" check could never be true.
+TEST(MutatorPointLastInstructionTest, FallsBackToPointRandomForInvalidOffset) {
+  std::shared_ptr<viaevo::Program> target =
+      viaevo::Program::Create("elfs/simple_small");
+  std::shared_ptr<viaevo::Program> parent =
+      viaevo::Program::Create("elfs/simple_small");
+
+  // A freshly created (not executed) Program has the invalid sentinel offset.
+  EXPECT_EQ(parent->last_rip_offset(), -1);
+
+  viaevo::RandomMock gen({42});
+
+  std::vector<char> old_parent_code = parent->GetElfCode();
+
+  viaevo::MutatorPointLastInstruction mutator(gen);
+  mutator.Mutate(target, parent, parent);
+
+  std::vector<char> new_target_code = target->GetElfCode();
+  std::vector<char> new_parent_code = parent->GetElfCode();
+
+  // Parent code should be unaltered.
+  EXPECT_EQ(old_parent_code, new_parent_code);
+  // The fallback (MutatorPointRandom with gen value 42) flips the third bit of
+  // byte 5 (pos = 42 % (size * 8) = 42 -> index 5, bit 2), hence ^4. This
+  // matches MutatorPointRandomTest.Mutate and confirms the fallback path ran.
+  std::vector<char> parent_start(old_parent_code.begin(),
+                                 old_parent_code.begin() + 5);
+  std::vector<char> target_start(new_target_code.begin(),
+                                 new_target_code.begin() + 5);
+  EXPECT_EQ(parent_start, target_start);
+  EXPECT_EQ(old_parent_code[5], new_target_code[5] ^ 4);
+  std::vector<char> parent_end(old_parent_code.begin() + 6,
+                               old_parent_code.end());
+  std::vector<char> target_end(new_target_code.begin() + 6,
+                               new_target_code.end());
+  EXPECT_EQ(parent_end, target_end);
+}
+
 } // namespace

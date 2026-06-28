@@ -16,14 +16,14 @@ prior art, infrastructure/reproducibility, and a prioritized roadmap.
 These are concrete defects found while reading the code. They undermine
 everything built on top, so fix them before the larger refactors.
 
-- **`Random` stream operators have undefined behavior.** In
+- **[DONE]** **`Random` stream operators have undefined behavior.** In
   `@/home/baran/prjs/viaevo/util/random.h:38-48`, both `operator<<` and
   `operator>>` are declared to return a stream reference but contain no
   `return` statement. Falling off the end of a non-`void` function is UB. Add
   `return ost;` / `return ist;`. This matters because these operators are the
   natural way to serialize/restore RNG state for reproducible runs (see §8).
 
-- **Signed/unsigned mismatch in `last_rip_offset_`.** It is
+- **[DONE]** **Signed/unsigned mismatch in `last_rip_offset_`.** It is
   `unsigned long long` initialized to `-1`
   (`@/home/baran/prjs/viaevo/program/program.h:119`). In
   `@/home/baran/prjs/viaevo/mutator/mutator_point_last_instruction.cc:24-25`

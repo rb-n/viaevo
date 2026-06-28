@@ -490,7 +490,10 @@ void Program::ReadLastResultsAndLastRipOffsetFromElfProcess(
   if (start_data > end_data)
     myfail("start_data > end_data");
 
-  last_rip_offset_ = rip - start_code - symbol_data_.main_offset_in_text_;
+  // Compute in signed arithmetic so that an rip outside main (e.g. before main
+  // starts) yields a negative offset rather than a huge unsigned value.
+  last_rip_offset_ = (long long)rip - (long long)start_code -
+                     (long long)symbol_data_.main_offset_in_text_;
 
   // printf("pid: %d, comm: %s, state: %c\n", proc_pid, proc_comm.c_str(),
   //        proc_state);
@@ -526,7 +529,7 @@ void Program::ReadLastResultsAndLastRipOffsetFromElfProcess(
 
 void Program::ClearLastState() {
   last_syscall_ = kInvalidSyscall;
-  last_rip_offset_ = -1;
+  last_rip_offset_ = kInvalidRipOffset;
   last_exit_status_ = kInvalidExitStatus;
   last_term_signal_ = kInvalidSignal;
   last_stop_signal_ = kInvalidSignal;
