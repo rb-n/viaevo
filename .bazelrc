@@ -4,4 +4,5 @@
 # https://bazel.build/run/bazelrc#option-defaults
 build --spawn_strategy=linux-sandbox
 build --cxxopt='-std=c++17'
+build --incompatible_strict_action_env=false
 test --test_output=streamed
