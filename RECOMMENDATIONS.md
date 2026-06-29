@@ -33,7 +33,13 @@ everything built on top, so fix them before the larger refactors.
   caught by that branch. This works by luck, not design. Use a signed type or
   an explicit `std::optional<uint64_t>` sentinel and compare against that.
 
-- **`std::execution::par` over `fork()`/`ptrace()` is fragile.** In
+- **[PARTIALLY DONE]** **`std::execution::par` over `fork()`/`ptrace()` is
+  fragile.** The seccomp filter is now compiled once in the parent
+  (`GetSeccompProgram` in `program.cc`) and the child only installs the
+  pre-built BPF program via async-signal-safe `prctl`/`seccomp` syscalls,
+  removing the libseccomp allocation from the post-fork child. Still outstanding:
+  replacing `fork()` with `posix_spawn`/`vfork`+`execveat` and/or a persistent
+  worker-process pool (§8). In
   `@/home/baran/prjs/viaevo/evolver/evolver_adhoc.cc:114-130` programs are
   executed in parallel. `Program::Execute` forks, installs seccomp, and
   `ptrace`s. `fork()` in a multithreaded process only safely runs

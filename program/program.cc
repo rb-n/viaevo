@@ -8,11 +8,15 @@
 #include <elf.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <linux/filter.h>
+#include <linux/seccomp.h>
 #include <seccomp.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/mman.h>
+#include <sys/prctl.h>
 #include <sys/ptrace.h>
+#include <sys/syscall.h>
 #include <sys/time.h>
 #include <sys/uio.h>
 #include <sys/user.h>
@@ -30,6 +34,86 @@ namespace {
 void myfail(const char *s) {
   perror(s);
   exit(EXIT_FAILURE);
+}
+
+// Compiles the seccomp allow-list into a raw BPF program exactly once and
+// returns a reference to a cached, never-destroyed sock_fprog.
+//
+// The compilation (libseccomp rule building + BPF generation, which allocates)
+// happens here in the parent process. The forked child then only needs to
+// install this pre-built program via async-signal-safe syscalls (see
+// RunElfProcess). Building the filter directly in the post-fork child of a
+// multithreaded process is unsafe: libseccomp is not async-signal-safe and can
+// deadlock on locks (e.g. malloc's) held by other threads at fork() time.
+//
+// First-call (lazy) initialization of the function-local static is thread-safe;
+// Program::Execute also forces this build before fork() so the very first build
+// never happens in a child.
+const struct sock_fprog &GetSeccompProgram() {
+  static const std::vector<struct sock_filter> filter = [] {
+    scmp_filter_ctx ctx = seccomp_init(SCMP_ACT_KILL);
+    if (!ctx)
+      myfail("seccomp_init failed");
+
+    seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(read), 0);
+    // The write system call does not seem to be necessary, which is good.
+    // seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(write), 0);
+    seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(close), 0);
+    seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(exit_group), 0);
+
+    // These were added one by one by looking into syslog after "killed by
+    // signal 31" failures. The syscall sequence can also be made visible via
+    // unit tests (program_test.cc) by uncommenting the corresponding printf
+    // statements in MonitorElfProcess. Useful if the compiler/linker adds more
+    // syscalls to elfs and the unit tests start failing.
+    seccomp_rule_add(ctx, SCMP_ACT_ALLOW, 322, 0); // stub_execveat
+    seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(brk), 0);
+    seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(fstat), 0);
+    seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(mmap), 0);
+    seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(access), 0);
+    seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(openat), 0);
+    seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(newfstatat), 0);
+    seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(pread64), 0);
+    seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(arch_prctl), 0);
+    seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(set_tid_address), 0);
+    seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(set_robust_list), 0);
+    seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(rseq), 0);
+    seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(mprotect), 0);
+    seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(prlimit64), 0);
+    seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(munmap), 0);
+    seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(getrandom), 0);
+
+    // The system call below is required for ptrace.
+    seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(ptrace), 0);
+
+    // Export the compiled classic-BPF program through a memfd, then read it
+    // back into a vector of sock_filter instructions.
+    int bpf_fd = memfd_create("viaevo_seccomp_bpf", MFD_CLOEXEC);
+    if (bpf_fd == -1)
+      myfail("memfd_create for seccomp bpf failed");
+    if (seccomp_export_bpf(ctx, bpf_fd) != 0)
+      myfail("seccomp_export_bpf failed");
+    seccomp_release(ctx);
+
+    off_t size = lseek(bpf_fd, 0, SEEK_END);
+    if (size <= 0 || size % (off_t)sizeof(struct sock_filter) != 0)
+      myfail("unexpected seccomp bpf size");
+    if (lseek(bpf_fd, 0, SEEK_SET) == -1)
+      myfail("lseek on seccomp bpf failed");
+
+    std::vector<struct sock_filter> instructions(size /
+                                                 sizeof(struct sock_filter));
+    if (read(bpf_fd, instructions.data(), size) != size)
+      myfail("reading seccomp bpf failed");
+    close(bpf_fd);
+
+    return instructions;
+  }();
+
+  static const struct sock_fprog prog = {
+      static_cast<unsigned short>(filter.size()),
+      const_cast<struct sock_filter *>(filter.data())};
+  return prog;
 }
 
 } // namespace
@@ -279,6 +363,11 @@ void Program::InitializeElfSymbolData() {
 int Program::Execute(int max_ptrace_stops) {
   ClearLastState();
 
+  // Compile the seccomp BPF program here in the parent (idempotent after the
+  // first call) so the forked child only has to install the pre-built program
+  // via async-signal-safe syscalls.
+  GetSeccompProgram();
+
   pid_t pid;
 
   pid = fork();
@@ -413,46 +502,21 @@ void Program::RunElfProcess() {
   // Limit the allowed syscalls for the elf_process to the necessary minimum.
   // The parent process is only intended to run in a sandbox anyway, but let's
   // try to be cautious here as well.
-
-  // prctl(PR_SET_SECCOMP, SECCOMP_MODE_STRICT); // Does now work with fexecve
-  // further below, using libseccomp instead.
-
-  // From:
-  // https://adil.medium.com/allow-disallow-syscalls-via-seccomp-d5fc8816d34e
-  scmp_filter_ctx ctx = seccomp_init(SCMP_ACT_KILL);
-  seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(read), 0);
-  // seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(write), 0); // The write
-  // system call does not seem to be necessary what is good.
-  seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(close), 0);
-  seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(exit_group), 0);
-
-  // These were added one by one by looking into syslog after "killed by
-  // signal 31" failures.
-  // The syscall sequence can also be made visible via unit tests
-  // (program_test.cc) by uncommenting the corresponding printf statements in
-  // MonitorElfProcess above. Useful if the compiler/linker adds more syscalls
-  // to elfs and the unit tests start failing.
-  seccomp_rule_add(ctx, SCMP_ACT_ALLOW, 322, 0); // stub_execveat
-  seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(brk), 0);
-  seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(fstat), 0);
-  seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(mmap), 0);
-  seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(access), 0);
-  seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(openat), 0);
-  seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(newfstatat), 0);
-  seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(pread64), 0);
-  seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(arch_prctl), 0);
-  seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(set_tid_address), 0);
-  seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(set_robust_list), 0);
-  seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(rseq), 0);
-  seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(mprotect), 0);
-  seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(prlimit64), 0);
-  seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(munmap), 0);
-  seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(getrandom), 0);
-
-  // The system call below is required for ptrace.
-  seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(ptrace), 0);
-
-  seccomp_load(ctx);
+  //
+  // Install the pre-built seccomp BPF program (compiled once in the parent, see
+  // GetSeccompProgram). Only async-signal-safe syscalls are used here, as
+  // required for code running in the child between fork() and exec(). This
+  // replaces an earlier libseccomp seccomp_init/seccomp_rule_add/seccomp_load
+  // sequence that allocated memory in the child (unsafe after fork() in a
+  // multithreaded process).
+  //
+  // PR_SET_NO_NEW_PRIVS is required to install a filter without privileges;
+  // libseccomp's seccomp_load used to set this for us.
+  if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) == -1)
+    myfail("prctl(PR_SET_NO_NEW_PRIVS) failed");
+  if (syscall(SYS_seccomp, SECCOMP_SET_MODE_FILTER, 0, &GetSeccompProgram()) !=
+      0)
+    myfail("seccomp(SECCOMP_SET_MODE_FILTER) failed");
 
   if (ptrace(PTRACE_TRACEME, 0, NULL, NULL) == -1)
     myfail("PTRACE_TRACEME failed");
