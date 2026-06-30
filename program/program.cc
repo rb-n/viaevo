@@ -36,6 +36,16 @@ void myfail(const char *s) {
   exit(EXIT_FAILURE);
 }
 
+// Error handler for the vfork() child. It must NOT call exit(): the child runs
+// in the parent's shared address space until it execs, so running atexit
+// handlers or flushing stdio buffers would corrupt the (suspended) parent's
+// state. Uses _exit() instead. The parent is suspended during the vfork window,
+// so the perror() call here races with nothing.
+[[noreturn]] void child_fail(const char *s) {
+  perror(s);
+  _exit(127);
+}
+
 // Compiles the seccomp allow-list into a raw BPF program exactly once and
 // returns a reference to a cached, never-destroyed sock_fprog.
 //
@@ -364,17 +374,24 @@ int Program::Execute(int max_ptrace_stops) {
   ClearLastState();
 
   // Compile the seccomp BPF program here in the parent (idempotent after the
-  // first call) so the forked child only has to install the pre-built program
-  // via async-signal-safe syscalls.
+  // first call) so the child only has to install the pre-built program via
+  // async-signal-safe syscalls.
   GetSeccompProgram();
 
   pid_t pid;
 
-  pid = fork();
+  // Use vfork() rather than fork(): the parent is suspended and the child runs
+  // in the parent's address space until it execs, so no page tables are copied
+  // and there is no window in which a multithreaded parent's address space is
+  // duplicated with foreign locks held (the "fork-in-a-thread" hazard). The
+  // child (RunElfProcess) performs only async-signal-safe syscalls -- no
+  // allocation, as the seccomp BPF is pre-built -- and never returns into this
+  // frame: it ends in execveat() on success or _exit() (via child_fail) on
+  // error.
+  pid = vfork();
 
-  // TODO: Fork sometimes fails with "resource not available", retry?
   if (pid == -1)
-    myfail("fork failed");
+    myfail("vfork failed");
 
   if (pid > 0) {
     return MonitorElfProcess(pid, max_ptrace_stops);
@@ -503,26 +520,36 @@ void Program::RunElfProcess() {
   // The parent process is only intended to run in a sandbox anyway, but let's
   // try to be cautious here as well.
   //
+  // This function runs in the vfork() child, sharing the parent's address space
+  // until the execveat() below. It must therefore use only async-signal-safe
+  // syscalls (no allocation, no stdio) and must terminate via exec or _exit()
+  // (see child_fail) -- never return into Program::Execute.
+  //
   // Install the pre-built seccomp BPF program (compiled once in the parent, see
-  // GetSeccompProgram). Only async-signal-safe syscalls are used here, as
-  // required for code running in the child between fork() and exec(). This
-  // replaces an earlier libseccomp seccomp_init/seccomp_rule_add/seccomp_load
-  // sequence that allocated memory in the child (unsafe after fork() in a
-  // multithreaded process).
+  // GetSeccompProgram). This replaces an earlier libseccomp
+  // seccomp_init/seccomp_rule_add/seccomp_load sequence that allocated memory in
+  // the child.
   //
   // PR_SET_NO_NEW_PRIVS is required to install a filter without privileges;
   // libseccomp's seccomp_load used to set this for us.
   if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) == -1)
-    myfail("prctl(PR_SET_NO_NEW_PRIVS) failed");
+    child_fail("prctl(PR_SET_NO_NEW_PRIVS) failed");
   if (syscall(SYS_seccomp, SECCOMP_SET_MODE_FILTER, 0, &GetSeccompProgram()) !=
       0)
-    myfail("seccomp(SECCOMP_SET_MODE_FILTER) failed");
+    child_fail("seccomp(SECCOMP_SET_MODE_FILTER) failed");
 
   if (ptrace(PTRACE_TRACEME, 0, NULL, NULL) == -1)
-    myfail("PTRACE_TRACEME failed");
+    child_fail("PTRACE_TRACEME failed");
 
-  if (fexecve(elf_mem_fd_, (char *const *)av, (char *const *)ep) == -1)
-    myfail("fexecve failed");
+  // Execute directly from the in-memory ELF file descriptor. execveat with an
+  // empty path and AT_EMPTY_PATH is the underlying mechanism fexecve uses; we
+  // call it directly to avoid any dependency on /proc and to match the intended
+  // design. Use the raw syscall for portability across glibc versions (the
+  // execveat() wrapper was only added in glibc 2.34).
+  syscall(SYS_execveat, elf_mem_fd_, "", (char *const *)av, (char *const *)ep,
+          AT_EMPTY_PATH);
+  // execveat only returns on failure.
+  child_fail("execveat failed");
 }
 
 void Program::ReadLastResultsAndLastRipOffsetFromElfProcess(

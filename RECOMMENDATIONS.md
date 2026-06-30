@@ -33,13 +33,19 @@ everything built on top, so fix them before the larger refactors.
   caught by that branch. This works by luck, not design. Use a signed type or
   an explicit `std::optional<uint64_t>` sentinel and compare against that.
 
-- **[PARTIALLY DONE]** **`std::execution::par` over `fork()`/`ptrace()` is
-  fragile.** The seccomp filter is now compiled once in the parent
-  (`GetSeccompProgram` in `program.cc`) and the child only installs the
-  pre-built BPF program via async-signal-safe `prctl`/`seccomp` syscalls,
-  removing the libseccomp allocation from the post-fork child. Still outstanding:
-  replacing `fork()` with `posix_spawn`/`vfork`+`execveat` and/or a persistent
-  worker-process pool (§8). In
+- **[DONE]** **`std::execution::par` over `fork()`/`ptrace()` is fragile.** The
+  seccomp filter is now compiled once in the parent (`GetSeccompProgram` in
+  `program.cc`) and the child only installs the pre-built BPF program via
+  async-signal-safe `prctl`/`seccomp` syscalls, removing the libseccomp
+  allocation from the post-fork child. `Program::Execute` now uses `vfork()`
+  instead of `fork()`, and the child execs directly from the in-memory ELF fd
+  via `execveat(elf_mem_fd_, "", ..., AT_EMPTY_PATH)`, using only
+  async-signal-safe syscalls and a `_exit()`-based error path (`child_fail`).
+  This eliminates the page-table copy and the fork-in-a-thread window.
+  (`posix_spawn` was evaluated but rejected: it has no hook to run the required
+  child-side `PTRACE_TRACEME` / seccomp install / `setitimer`.) A persistent
+  worker-process pool (§8) remains as a separate, larger throughput
+  optimization. In
   `@/home/baran/prjs/viaevo/evolver/evolver_adhoc.cc:114-130` programs are
   executed in parallel. `Program::Execute` forks, installs seccomp, and
   `ptrace`s. `fork()` in a multithreaded process only safely runs
@@ -49,6 +55,69 @@ everything built on top, so fix them before the larger refactors.
   noted in the TODOs (`program.cc:286`, `program.cc:332-341`). Prefer
   `posix_spawn`/`vfork`+`execveat` with a pre-built seccomp BPF program, or a
   pool of pre-forked worker processes. See §8.
+
+  *Why the alternatives are preferred over plain `fork()`:*
+
+  - **The core problem with `fork()` here is the "fork-in-a-thread" hazard.**
+    `fork()` duplicates only the calling thread but the *entire* address space,
+    including the internal locks of the other threads that did **not** come
+    along. If another worker thread happened to hold, say, the allocator's lock
+    (or any libc/internal lock) at the instant of `fork()`, that lock is now
+    permanently held in the child by a thread that no longer exists. The child
+    may then deadlock the moment it touches `malloc`, stdio, or the dynamic
+    loader. POSIX therefore restricts the child to *async-signal-safe* calls
+    only between `fork()` and `exec()`. The current child does far more than
+    that (libseccomp — now fixed — `setitimer`, `ptrace`, `fexecve`, and any
+    implicit allocations), so correctness rests on timing luck. Under
+    `std::execution::par` (`evolver_adhoc.cc:114-130`) there are many threads
+    forking concurrently, which maximizes the probability of forking while some
+    lock is held — a strong fit for the intermittent failures observed.
+
+  - **`posix_spawn` is preferred because it removes that window by design.** It
+    is purpose-built to create-and-exec a process and, on Linux/glibc, is
+    implemented on top of `clone(CLONE_VM | CLONE_VFORK)`: the child shares the
+    parent's address space and runs in a tiny, controlled helper that performs
+    only async-signal-safe operations before `execve`, while the parent is
+    suspended so there is no concurrent mutation of shared state. The set of
+    pre-exec actions (fd setup, signal mask/`setitimer`-equivalents via
+    `posix_spawn` file actions/attributes) is fixed and audited by the C
+    library, so the application never executes arbitrary, allocation-heavy code
+    in the fragile post-fork context. It is also typically faster than `fork()`
+    because no page tables are copied (no copy-on-write setup for a space we are
+    about to discard at `exec`).
+
+  - **`vfork`+`execveat` is preferred for the same address-space reason, with
+    even less overhead.** `vfork` suspends the parent and lends its address
+    space to the child until `execveat`, so there is zero page-table duplication
+    and no risk of concurrent threads mutating shared state during the child's
+    brief life. `execveat(elf_mem_fd_, "", ..., AT_EMPTY_PATH)` then execs
+    directly from the existing in-memory ELF fd (`elf_mem_fd_`), matching what
+    `fexecve` already does. The catch is that the contract is strict (the child
+    must not return or touch the parent's stack before `exec`), so it is best
+    reserved for the case where the pre-exec work is genuinely minimal; given a
+    *pre-built* seccomp program and an fd-based exec, the remaining work fits
+    that contract. `posix_spawn` is the safer default; raw `vfork` is the
+    lowest-overhead option when every microsecond per evaluation matters.
+
+  - **A pre-forked worker-process pool is preferred when throughput dominates,
+    and it sidesteps the problem entirely.** Instead of spawning a process per
+    evaluation, fork a small set of sandboxed workers **once, at startup, before
+    any threads are created** (so the fork-in-a-thread hazard never arises).
+    Each worker installs the seccomp filter and then loops: receive "here is new
+    code + inputs" over a pipe/socket, run and `ptrace` it, send back results.
+    This amortizes the fixed per-run costs that currently dominate (fork, ELF
+    setup, filter install, alarm arming) across thousands of evaluations,
+    converts the parallelism from "fork under `par`" into ordinary message
+    passing to long-lived processes, and makes evaluation naturally
+    deterministic/reproducible per worker (§8). The trade-off is more
+    implementation complexity (a request/response protocol and worker lifecycle
+    management), which is why it is the larger, higher-payoff step rather than a
+    drop-in.
+
+  In short: plain `fork()` is fragile here because it leaves the child in a
+  multithreaded-inherited, allocation-unsafe state; `posix_spawn` and
+  `vfork`+`execveat` eliminate that state window (and copy less memory), while a
+  worker pool avoids paying the per-evaluation spawn cost at all.
 
 - **MNIST scorer re-parses the whole file header on every sample.**
   `ScorerMnistDigits::LoadSample`
