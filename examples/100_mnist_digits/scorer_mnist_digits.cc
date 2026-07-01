@@ -7,6 +7,8 @@
 
 #include <assert.h>
 
+#include <atomic>
+#include <cstddef>
 #include <cstring>
 #include <fstream>
 #include <ios>
@@ -14,6 +16,32 @@
 #include <unordered_set>
 
 namespace viaevo {
+
+namespace {
+
+// Number of result slots the scorer expects (results[0..10], i.e. indices
+// 1..10 are read by Score).
+constexpr std::size_t kExpectedResultsSize = 11;
+
+// Logs (to stderr) that a Program returned fewer result values than expected,
+// keeping a running count so the frequency of these events can be gauged. This
+// happens when an ELF process terminates before its results are read back (see
+// Program::MonitorElfProcess): a crash (e.g. SIGSEGV), an early exit, or a
+// skipped PTRACE_GETREGS read all leave last_results() empty. Thread-safe as
+// scoring runs under std::execution::par.
+void LogUndersizedResults(const char *where, std::size_t size,
+                          std::size_t expected) {
+  static std::atomic<long long> count{0};
+  long long n = ++count;
+  // Leading newline so the message does not mangle the '\r'-updated progress
+  // line printed by the evolver.
+  std::cerr << "\n[ScorerMnistDigits::" << where
+            << "] undersized results (size=" << size << ", expected >= "
+            << expected << "); scoring 0. occurrences so far: " << n
+            << std::endl;
+}
+
+} // namespace
 
 ScorerMnistDigits::ScorerMnistDigits(Random &gen, std::string images_filename,
                                      std::string labels_filename)
@@ -31,6 +59,16 @@ long long ScorerMnistDigits::Score(const Program &program) const {
   }
 
   const std::vector<int> &results = program.last_results();
+
+  // last_results() can be shorter than expected (typically empty) when the ELF
+  // process terminates before its results are read back. Guard the
+  // results[1..10] accesses below against an out-of-bounds read and log the
+  // occurrence.
+  if (results.size() < kExpectedResultsSize) {
+    LogUndersizedResults("Score", results.size(), kExpectedResultsSize);
+    return 0;
+  }
+
   long long score = 0;
 
   // Return maximum score if results[1] == expected_value_;
@@ -64,6 +102,11 @@ long long ScorerMnistDigits::ScoreResultsHistory(
   std::unordered_set<int> results1_values;
 
   for (auto &results : results_history) {
+    // Skip (and log) any history entry too short to contain results[1].
+    if (results.size() < 2) {
+      LogUndersizedResults("ScoreResultsHistory", results.size(), 2);
+      continue;
+    }
     results1_values.insert(results[1]);
   }
 

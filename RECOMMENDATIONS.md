@@ -134,10 +134,21 @@ everything built on top, so fix them before the larger refactors.
   (`SIGALRM`, `SIGTRAP`, `__NR_*`/`SCMP_SYS(...)`). The raw `322` is
   architecture-specific and will silently break on a non-x86-64 build.
 
-- **`Score()` indexes `results[1..10]` without checking size.** Scorers assume
-  `results` has ≥11 elements. If a template with a smaller `results` is ever
-  used, this is an out-of-bounds read. Add a guard or assert keyed off
-  `results.size()`.
+- **[PARTIALLY DONE]** **`Score()` indexes `results[1..10]` without checking
+  size.** Scorers assume `results` has ≥11 elements. This is not only a
+  smaller-template concern: at runtime `Program::last_results()` is left empty
+  whenever the ELF terminates before its results are read back (crash/SIGSEGV,
+  early exit, or the ignored `PTRACE_GETREGS` early-return in
+  `MonitorElfProcess`), and only `SIGALRM` was special-cased. The unchecked
+  `results[1]` then trips libstdc++'s hardened `operator[]` assertion and
+  aborts a run. Fixed in `ScorerMnistDigits` (`Score` and `ScoreResultsHistory`
+  now guard on `results.size()`, return/skip with a score of 0, and log
+  occurrences with a running count so their frequency can be gauged). The other
+  example scorers (`000_guess_value`, `001_copy_value`, `002_double_value`,
+  `010_sum_two`) still share the unchecked pattern and should get the same
+  guard. Longer term, consider making the upstream contract explicit (e.g. have
+  the monitor always populate `last_results_`, or expose a "results valid"
+  flag).
 
 ---
 

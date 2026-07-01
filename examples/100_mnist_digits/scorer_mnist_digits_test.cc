@@ -346,6 +346,32 @@ TEST(ScorerMnistDigitsTest, Score) {
   EXPECT_EQ(scorer.Score(program), 0);
 }
 
+TEST(ScorerMnistDigitsTest, ScoreUndersizedResults) {
+  viaevo::RandomMock gen({0, 14});
+
+  viaevo::ScorerMnistDigits scorer(
+      gen, "examples/100_mnist_digits/data/train-images-idx3-ubyte",
+      "examples/100_mnist_digits/data/train-labels-idx1-ubyte");
+
+  ProgramMock program;
+
+  // last_results() can be empty when the ELF process terminates before its
+  // results are read back (crash, early exit, skipped PTRACE_GETREGS). Score
+  // must not read out of bounds; it should return 0.
+  program.set_last_results({});
+  EXPECT_EQ(scorer.Score(program), 0);
+
+  // Fewer than the expected 11 result slots is likewise scored 0.
+  program.set_last_results({-1, 5, -1});
+  EXPECT_EQ(scorer.Score(program), 0);
+
+  // A full-length results vector is scored normally (expected_value_ == 5).
+  std::vector<int> results(11, -1);
+  results[1] = 5;
+  program.set_last_results(results);
+  EXPECT_EQ(scorer.Score(program), 1'000'000'000);
+}
+
 TEST(ScorerMnistDigitsTest, ScoreResultsHistory) {
   viaevo::RandomMock gen({0, 14});
   EXPECT_EQ(gen(), 0);
