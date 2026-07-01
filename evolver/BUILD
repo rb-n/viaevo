@@ -19,6 +19,7 @@ cc_library(
 
 cc_test(
     name = "evolver_adhoc_test",
+    size = "small",
     srcs = ["evolver_adhoc_test.cc"],
     data = ["//elfs:simple_small"],
     deps = [

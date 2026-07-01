@@ -7,6 +7,7 @@
 
 #include <assert.h>
 
+#include <cstring>
 #include <fstream>
 #include <ios>
 #include <iostream>
@@ -18,6 +19,7 @@ ScorerMnistDigits::ScorerMnistDigits(Random &gen, std::string images_filename,
                                      std::string labels_filename)
     : gen_(gen), images_filename_(images_filename),
       labels_filename_(labels_filename) {
+  LoadData();
   ResetInputs();
 }
 
@@ -124,8 +126,8 @@ int ReadBigEndianInt(std::ifstream &ifs) {
 }
 } // namespace
 
-void ScorerMnistDigits::LoadSample(int pos) {
-  // Read the image.
+void ScorerMnistDigits::LoadData() {
+  // Read and validate the images file header, then cache all pixel bytes.
   std::ifstream ifs_images(images_filename_, std::ios::binary);
   assert(ifs_images.is_open() && "Failed to open images data.");
   unsigned char c;
@@ -144,20 +146,21 @@ void ScorerMnistDigits::LoadSample(int pos) {
   for (int i = 0; i < num_dimensions; ++i) {
     dimensions_sizes[i] = ReadBigEndianInt(ifs_images);
   }
-  assert(dimensions_sizes[0] == 60000 &&
+  assert(dimensions_sizes[0] == num_samples_ &&
          "Expected 60000 samples in images data.");
   assert(dimensions_sizes[1] == 28 && dimensions_sizes[2] == 28 &&
          "Expected images size to be 28x28.");
-  std::ifstream::pos_type image_size =
-      dimensions_sizes[1] * dimensions_sizes[2];
-  ifs_images.seekg(ifs_images.tellg() + pos * image_size);
-  assert(!ifs_images.bad() && !ifs_images.eof() && "Images data seekg failed.");
-  current_inputs_.resize(1 + image_size /
-                                 sizeof(decltype(current_inputs_)::value_type));
-  ifs_images.read(reinterpret_cast<char *>(current_inputs_.data()), image_size);
+  image_size_ = dimensions_sizes[1] * dimensions_sizes[2];
+
+  images_data_.resize((std::size_t)num_samples_ * image_size_);
+  ifs_images.read(reinterpret_cast<char *>(images_data_.data()),
+                  images_data_.size());
+  assert(!ifs_images.bad() &&
+         ifs_images.gcount() == (std::streamsize)images_data_.size() &&
+         "Failed to read images data.");
   ifs_images.close();
 
-  // Read the label.
+  // Read and validate the labels file header, then cache all label bytes.
   std::ifstream ifs_labels(labels_filename_, std::ios::binary);
   assert(ifs_labels.is_open() && "Failed to open labels data.");
   for (int i = 0; i < 2; ++i) {
@@ -170,17 +173,35 @@ void ScorerMnistDigits::LoadSample(int pos) {
   assert(num_dimensions == 1 &&
          "Labels dimensions do not have the expected value of 1.");
 
+  std::vector<int> label_dimensions_sizes(num_dimensions);
   for (int i = 0; i < num_dimensions; ++i) {
-    dimensions_sizes[i] = ReadBigEndianInt(ifs_labels);
+    label_dimensions_sizes[i] = ReadBigEndianInt(ifs_labels);
   }
-  assert(dimensions_sizes[0] == 60000 &&
+  assert(label_dimensions_sizes[0] == num_samples_ &&
          "Expected 60000 samples in labels data.");
-  ifs_labels.seekg(ifs_labels.tellg() + (std::ifstream::pos_type)pos);
-  assert(!ifs_labels.bad() && !ifs_labels.eof() && "Labels data seekg failed.");
 
-  ifs_labels.read(reinterpret_cast<char *>(&c), 1);
-  expected_value_ = c;
+  labels_data_.resize(num_samples_);
+  ifs_labels.read(reinterpret_cast<char *>(labels_data_.data()),
+                  labels_data_.size());
+  assert(!ifs_labels.bad() &&
+         ifs_labels.gcount() == (std::streamsize)labels_data_.size() &&
+         "Failed to read labels data.");
   ifs_labels.close();
+}
+
+void ScorerMnistDigits::LoadSample(int pos) {
+  assert(pos >= 0 && pos < num_samples_ && "Sample position out of range.");
+
+  // Copy the image's pixel bytes from the cache into current_inputs_. The
+  // buffer is sized as before (one extra int for padding) and zero-initialized
+  // so any unused trailing bytes are deterministic.
+  current_inputs_.assign(
+      1 + image_size_ / sizeof(decltype(current_inputs_)::value_type), 0);
+  std::memcpy(current_inputs_.data(),
+              images_data_.data() + (std::size_t)pos * image_size_,
+              image_size_);
+
+  expected_value_ = labels_data_[pos];
 }
 
 } // namespace viaevo

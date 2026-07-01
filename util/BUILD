@@ -14,6 +14,7 @@ cc_library(
 
 cc_test(
     name = "random_test",
+    size = "small",
     srcs = ["random_test.cc"],
     deps = [
         ":random",
@@ -35,6 +36,7 @@ cc_library(
 
 cc_test(
     name = "random_mock_test",
+    size = "small",
     srcs = ["random_mock_test.cc"],
     deps = [
         ":random_mock",

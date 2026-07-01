@@ -14,6 +14,7 @@ cc_library(
 
 cc_test(
     name = "scorer_mnist_digits_test",
+    size = "small",
     srcs = ["scorer_mnist_digits_test.cc"],
     data = [":train_data"],
     deps = [

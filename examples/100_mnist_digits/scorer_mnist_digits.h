@@ -40,8 +40,14 @@ public:
   int expected_value() { return expected_value_; }
 
 protected:
-  // Loads the image of the digit in pos position from images_filename_ and sets
-  // the expected_value_ accordingly based on labels_filename_.
+  // Reads and validates the images and labels files once, caching their pixel
+  // and label bytes into images_data_ and labels_data_. Called from the
+  // constructor so that LoadSample does no file I/O.
+  void LoadData();
+
+  // Loads the image of the digit in pos position (from the cached images_data_)
+  // into current_inputs_ and sets expected_value_ accordingly (from the cached
+  // labels_data_).
   void LoadSample(int pos);
 
   // Random number generator.
@@ -53,6 +59,12 @@ protected:
   int expected_value_ = -1;
   // Number of digit samples in input data.
   static constexpr int num_samples_ = 60'000;
+  // Size of a single image in bytes (28 * 28), determined when loading data.
+  int image_size_ = 0;
+  // Cached pixel bytes for all samples (num_samples_ * image_size_ bytes) and
+  // cached label bytes (num_samples_ bytes), loaded once by LoadData.
+  std::vector<unsigned char> images_data_;
+  std::vector<unsigned char> labels_data_;
 };
 
 } // namespace viaevo

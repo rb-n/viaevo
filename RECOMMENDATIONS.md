@@ -119,13 +119,13 @@ everything built on top, so fix them before the larger refactors.
   `vfork`+`execveat` eliminate that state window (and copy less memory), while a
   worker pool avoids paying the per-evaluation spawn cost at all.
 
-- **MNIST scorer re-parses the whole file header on every sample.**
-  `ScorerMnistDigits::LoadSample`
-  (`@/home/baran/prjs/viaevo/examples/100_mnist_digits/scorer_mnist_digits.cc:127-184`)
-  opens the file, validates the magic/dimension header, and seeks for *every*
-  input draw. With `evaluations_per_program` draws × population × generations
-  this is a large amount of redundant I/O. Load and cache the dataset once
-  (e.g. `mmap` or a `std::vector` in the constructor).
+- **[DONE]** **MNIST scorer re-parses the whole file header on every sample.**
+  `ScorerMnistDigits::LoadSample` used to open both files, validate the
+  magic/dimension header, and seek for *every* input draw. The constructor now
+  calls `LoadData()` once to validate the headers and cache all pixel/label
+  bytes into `images_data_`/`labels_data_`; `LoadSample` is now a pure in-memory
+  `memcpy` from those caches with no file I/O. With `evaluations_per_program`
+  draws × population × generations this removes a large amount of redundant I/O.
 
 - **Hardcoded magic numbers for signals/syscalls.** `last_stop_signal() == 14`
   (SIGALRM) appears in the evolver and scorers; `last_stop_signal_ != 5`

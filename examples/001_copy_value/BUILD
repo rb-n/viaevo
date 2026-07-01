@@ -14,6 +14,7 @@ cc_library(
 
 cc_test(
     name = "scorer_copy_value_test",
+    size = "small",
     srcs = ["scorer_copy_value_test.cc"],
     deps = [
         ":scorer_copy_value",

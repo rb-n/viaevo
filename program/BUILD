@@ -15,6 +15,7 @@ cc_library(
 
 cc_test(
     name = "program_test",
+    size = "small",
     srcs = ["program_test.cc"],
     data = [
         "//elfs:inf_loop",

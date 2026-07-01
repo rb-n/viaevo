@@ -14,6 +14,7 @@ cc_library(
 
 cc_test(
     name = "scorer_sum_two_test",
+    size = "small",
     srcs = ["scorer_sum_two_test.cc"],
     deps = [
         ":scorer_sum_two",

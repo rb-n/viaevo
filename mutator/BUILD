@@ -24,6 +24,7 @@ cc_library(
 
 cc_test(
     name = "mutator_point_random_test",
+    size = "small",
     srcs = ["mutator_point_random_test.cc"],
     data = ["//elfs:simple_small"],
     deps = [
@@ -47,6 +48,7 @@ cc_library(
 
 cc_test(
     name = "mutator_point_last_instruction_test",
+    size = "small",
     srcs = ["mutator_point_last_instruction_test.cc"],
     data = ["//elfs:simple_small"],
     deps = [
@@ -71,6 +73,7 @@ cc_library(
 
 cc_test(
     name = "mutator_recombine_random_test",
+    size = "small",
     srcs = ["mutator_recombine_random_test.cc"],
     data = ["//elfs:simple_small"],
     deps = [
@@ -95,6 +98,7 @@ cc_library(
 
 cc_test(
     name = "mutator_recombine_plain_elf_test",
+    size = "small",
     srcs = ["mutator_recombine_plain_elf.cc"],
     data = [
         "//elfs:intermediate_small",
@@ -129,6 +133,7 @@ cc_library(
 
 cc_test(
     name = "mutator_composite_random_test",
+    size = "small",
     srcs = ["mutator_composite_random_test.cc"],
     data = ["//elfs:simple_small"],
     deps = [

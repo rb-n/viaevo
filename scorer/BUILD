@@ -21,6 +21,7 @@ cc_library(
 
 cc_test(
     name = "scorer_mock_test",
+    size = "small",
     srcs = ["scorer_mock_test.cc"],
     deps = [
         ":scorer_mock",
@@ -38,6 +39,7 @@ cc_library(
 
 cc_test(
     name = "scorer_marked_mock_test",
+    size = "small",
     srcs = ["scorer_marked_mock_test.cc"],
     data = ["//elfs:simple_small"],
     deps = [
