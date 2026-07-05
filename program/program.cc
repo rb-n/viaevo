@@ -11,6 +11,7 @@
 #include <linux/filter.h>
 #include <linux/seccomp.h>
 #include <seccomp.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/mman.h>
@@ -76,7 +77,7 @@ const struct sock_fprog &GetSeccompProgram() {
     // unit tests (program_test.cc) by uncommenting the corresponding printf
     // statements in MonitorElfProcess. Useful if the compiler/linker adds more
     // syscalls to elfs and the unit tests start failing.
-    seccomp_rule_add(ctx, SCMP_ACT_ALLOW, 322, 0); // stub_execveat
+    seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(execveat), 0);
     seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(brk), 0);
     seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(fstat), 0);
     seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(mmap), 0);
@@ -470,7 +471,7 @@ int Program::MonitorElfProcess(pid_t elf_pid, int max_ptrace_stops) {
         if (kill(elf_pid, SIGKILL) == -1)
           myfail("kill failed");
       } else {
-        if (last_stop_signal_ != 5) {
+        if (last_stop_signal_ != SIGTRAP) {
           // E.g. SISGSEGV for and invalid program.
           if (ptrace(PTRACE_CONT, elf_pid, 0, last_stop_signal_) == -1)
             myfail("PTRACE_CONT failed");

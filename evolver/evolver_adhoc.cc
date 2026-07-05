@@ -13,6 +13,7 @@
 #include <iomanip>
 #include <iostream>
 #include <numeric>
+#include <signal.h>
 #include <string>
 #include <unordered_map>
 
@@ -123,7 +124,7 @@ void EvolverAdHoc::Run() {
             if (score_results_history_) {
               results_history[i].push_back(programs_[i]->last_results());
             }
-            if (programs_[i]->last_stop_signal() == 14) {
+            if (programs_[i]->last_stop_signal() == SIGALRM) {
               ++sigalarms_count;
             }
           });

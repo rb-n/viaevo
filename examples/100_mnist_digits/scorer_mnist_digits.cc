@@ -6,6 +6,7 @@
 #include "scorer_mnist_digits.h"
 
 #include <assert.h>
+#include <signal.h>
 
 #include <atomic>
 #include <cstddef>
@@ -52,7 +53,7 @@ ScorerMnistDigits::ScorerMnistDigits(Random &gen, std::string images_filename,
 }
 
 long long ScorerMnistDigits::Score(const Program &program) const {
-  if (program.last_stop_signal() == 14) {
+  if (program.last_stop_signal() == SIGALRM) {
     // Penalize long running programs (receiving SIGALRM set up in
     // Program::RunElfProcess) - e.g. due to an infinite loop.
     return 0;
