@@ -127,12 +127,16 @@ everything built on top, so fix them before the larger refactors.
   `memcpy` from those caches with no file I/O. With `evaluations_per_program`
   draws × population × generations this removes a large amount of redundant I/O.
 
-- **Hardcoded magic numbers for signals/syscalls.** `last_stop_signal() == 14`
-  (SIGALRM) appears in the evolver and scorers; `last_stop_signal_ != 5`
-  (SIGTRAP) is in `program.cc:367`; `seccomp_rule_add(ctx, ..., 322, 0)` uses a
-  raw syscall number (`program.cc:435`). Replace with named constants
-  (`SIGALRM`, `SIGTRAP`, `__NR_*`/`SCMP_SYS(...)`). The raw `322` is
-  architecture-specific and will silently break on a non-x86-64 build.
+- **[DONE]** **Hardcoded magic numbers for signals/syscalls.** The raw
+  `last_stop_signal() == 14` (in `evolver_adhoc.cc` and `scorer_mnist_digits.cc`)
+  and `last_stop_signal_ != 5` (in `program.cc`) now use the named `SIGALRM` and
+  `SIGTRAP` constants (`<signal.h>`), and the raw syscall number in
+  `seccomp_rule_add(ctx, SCMP_ACT_ALLOW, 322, 0)` is now `SCMP_SYS(execveat)`,
+  which libseccomp resolves per-architecture (the raw `322` was x86-64-specific
+  and would have silently broken on other arches). The `program_test.cc`
+  assertions still compare against literal `5`/`9` for the observed
+  stop/term signals, but those are test expectations with explanatory comments
+  rather than production logic.
 
 - **[PARTIALLY DONE]** **`Score()` indexes `results[1..10]` without checking
   size.** Scorers assume `results` has ≥11 elements. This is not only a
