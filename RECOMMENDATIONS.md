@@ -7,7 +7,9 @@ the current code where relevant.
 
 The sections are independent and roughly ordered as: bugs to fix first, then
 C++ design, the SIGUSR idea, template-program evolvability, benchmark problems,
-prior art, infrastructure/reproducibility, and a prioritized roadmap.
+prior art, scoring, infrastructure/reproducibility, documentation, operability
+features (checkpointing, program libraries, interactive control), and a
+prioritized roadmap.
 
 ---
 
@@ -555,7 +557,101 @@ Recommendations:
 
 ---
 
-## 10. Prioritized roadmap
+## 10. Operability: checkpointing, program libraries, and interactive control
+
+Three requested capabilities: (a) save/resume an evolution, (b) seed a new run
+by mixing previously evolved programs and/or template ELFs, and (c) interactive
+terminal monitoring/control. Much of the plumbing already exists; the notes
+below flag where each depends on the `int3` marker (§3) and the worker pool
+(§8).
+
+### 10.1 Checkpoint and resume a run
+
+The state to persist is small and mostly already serializable:
+
+- **Population.** Each `Program`'s evolvable code can be written out with
+  `Program::SaveElf` (`@/home/baran/prjs/viaevo/program/program.h:68`) and
+  reconstructed via `Program::Create`
+  (`@/home/baran/prjs/viaevo/program/program.h:44`). A checkpoint is the
+  `mu_+lambda_` ELF blobs in `programs_` order plus their current scores.
+- **RNG state.** `Random`'s `operator<<`/`operator>>` (fixed in §1,
+  `@/home/baran/prjs/viaevo/util/random.h:32-50`) round-trip the generator.
+  Persist the master `gen_`, and once per-program/per-worker streams exist
+  (§8), each stream's state too.
+- **Evolver bookkeeping.** `current_generation_`
+  (`@/home/baran/prjs/viaevo/evolver/evolver_adhoc.h:69`), the full config
+  (mu/phi/lambda/evaluations/max_generations/score_results_history), and the
+  scorer's input schedule so the same inputs are drawn after resume.
+
+Recommendations:
+
+- **Define a versioned, self-describing snapshot** (a directory with a
+  `manifest` + N `.elf` files, or a single archive). Include the git commit and
+  the full `EvolverConfig` (§2.5) so a resumed run is auditable and reproducible
+  (§8).
+- **Add `EvolverAdHoc::SaveCheckpoint(path)` / `LoadCheckpoint(path)` and a
+  `--resume <path>` flag.** Checkpoint every K generations and on `SIGINT`, so
+  Ctrl-C saves a long run instead of losing it.
+- **Determinism caveat:** exact bit-identical resumption requires the
+  reproducibility fixes in §8 (per-program RNG, deterministic evaluation).
+  Without them a resumed run continues correctly but won't match an
+  uninterrupted one step-for-step — document which guarantee you offer.
+
+### 10.2 Seed a run by mixing evolved programs and/or template ELFs
+
+Today the entire population is cloned from a single `elf_filename`
+(`@/home/baran/prjs/viaevo/evolver/evolver_adhoc.cc:33-39`). Generalize seeding:
+
+- **Accept a list of seed ELFs with weights/counts** (evolved champions from
+  prior runs and/or `//elfs` templates) and fill the initial `programs_` from
+  them (round-robin or proportional), optionally topping up the remainder by
+  mutating the seeds.
+- **This turns saved champions into a reusable program library:** promising
+  individuals from one task can bootstrap another (a form of transfer /
+  island-model seeding — see §6 on Cartesian GP neutrality and island models).
+
+**Why this pairs with `int3` (§3):** mixing *different* templates in one
+population is unsafe today because each ELF carries its own
+`expected_ptrace_stops_` calibration
+(`@/home/baran/prjs/viaevo/program/program.h:157`, memoized per-filename at
+`program.h:161`, computed once in `Create`,
+`@/home/baran/prjs/viaevo/program/program.cc:69`). The pre-`main` syscall count
+differs per template/toolchain, but the evolver assumes a single value. An
+`int3` breakpoint at `main` makes "evolvable code reached" independent of
+pre-`main` syscalls, so heterogeneous seeds can coexist. **Prerequisite for safe
+mixing:** all seeds must share the evolvable-region contract (same `main` size,
+and matching `inputs`/`results` layout); validate this at load and
+reject/pad mismatches explicitly rather than silently.
+
+### 10.3 Interactive terminal monitoring and control
+
+`Run()` currently streams a single fixed progress line
+(`@/home/baran/prjs/viaevo/evolver/evolver_adhoc.cc:67-129`) and offers no
+control once started. A terminal UI/REPL would help:
+
+- **Monitoring:** live best/median/worst score, a score histogram,
+  `sigalarms_count`, the ip-offset distribution (already computed in `Run`),
+  generations/sec, and the current champion's disassembly. A lightweight
+  ncurses / `ftxui`-style dashboard — or even a structured status line plus a
+  key-driven menu — stays entirely in the terminal.
+- **Control:** pause/resume, checkpoint-now, dump the current champion
+  (`SaveElf`), adjust the mutation mix / `mu`/`phi`/`lambda` /
+  `evaluations_per_program` on the fly, swap the target seed set, and
+  quit-with-save. Implement via a non-blocking key reader on the main thread or
+  a small command pipe/socket, keeping evaluation on the worker pool (§8).
+- **Keep the machine-readable run record (§8) as the source of truth;** the
+  interactive view is just a consumer of the same event stream, so headless
+  (CI/batch) runs still log identically.
+
+**Why this pairs with `int3` (§3) and the worker pool (§8):** interactive
+pause/resume and mid-run reconfiguration are far safer once evaluation is a
+robust, restartable step rather than the current fragile fork + syscall-count
+loop (the source of the "random PTRACE_GETREGS failures", §1). A worker pool
+also gives a clean seam to inject "pause" / "reconfigure" between generations.
+
+---
+
+## 11. Prioritized roadmap
 
 A suggested order that front-loads correctness and high-leverage research:
 
@@ -576,3 +672,12 @@ A suggested order that front-loads correctness and high-leverage research:
 7. **Add benchmarks** (parity, multiplexer, max/min, dot-product) and formalize
    the metrics-reporting script (§5).
 8. **Explore QD/MAP-Elites or novelty search** for the MNIST-class tasks (§6.3).
+9. **Checkpoint/resume and a seedable program library** (§10.1, §10.2): persist
+   population + RNG + config, add `--resume`, and generalize seeding to a
+   weighted set of evolved/template ELFs. Best after the `int3` switch (item 2)
+   so mixed templates are safe, and it composes with the reproducibility work
+   (item 3).
+10. **Interactive terminal dashboard and controls** (§10.3): live monitoring
+    plus pause / checkpoint / reconfigure without leaving the terminal. Best
+    after the `int3` switch (item 2) and the worker pool (item 3), which make
+    evaluation robust enough to pause and reconfigure safely.
