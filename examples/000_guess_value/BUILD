@@ -6,7 +6,10 @@ cc_library(
     name = "scorer_guess_value",
     srcs = ["scorer_guess_value.cc"],
     hdrs = ["scorer_guess_value.h"],
-    deps = ["//scorer"],
+    deps = [
+        "//scorer",
+        "//scorer:scorer_util",
+    ],
 )
 
 cc_test(

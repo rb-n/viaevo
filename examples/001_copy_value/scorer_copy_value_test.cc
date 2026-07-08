@@ -101,6 +101,22 @@ TEST(ScorerCopyValueTest, MaxScore) {
   EXPECT_EQ(scorer.MaxScore(), 112);
 }
 
+TEST(ScorerCopyValueTest, ScoreUndersizedResults) {
+  viaevo::RandomMock gen({42});
+  viaevo::ScorerCopyValue scorer(gen, 5);
+
+  ProgramMock program;
+
+  // last_results() can be empty or shorter than the expected 11 slots when the
+  // ELF process terminates before its results are read back. Score must not
+  // read out of bounds; it should return 0.
+  program.set_last_results({});
+  EXPECT_EQ(scorer.Score(program), 0);
+
+  program.set_last_results({20, -1, -1});
+  EXPECT_EQ(scorer.Score(program), 0);
+}
+
 TEST(ScorerCopyValueTest, AvoidMinusOne) {
   viaevo::RandomMock gen({(unsigned int)-1, (unsigned int)-1, 42});
   EXPECT_EQ(gen(), (unsigned int)-1);

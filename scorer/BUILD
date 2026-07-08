@@ -12,6 +12,15 @@ cc_library(
 )
 
 cc_library(
+    name = "scorer_util",
+    srcs = ["scorer_util.cc"],
+    hdrs = ["scorer_util.h"],
+    visibility = [
+        "//examples:__subpackages__",
+    ],
+)
+
+cc_library(
     name = "scorer_mock",
     srcs = ["scorer_mock.cc"],
     hdrs = ["scorer_mock.h"],

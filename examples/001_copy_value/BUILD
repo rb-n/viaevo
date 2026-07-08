@@ -8,6 +8,7 @@ cc_library(
     hdrs = ["scorer_copy_value.h"],
     deps = [
         "//scorer",
+        "//scorer:scorer_util",
         "//util:random",
     ],
 )

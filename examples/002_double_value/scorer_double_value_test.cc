@@ -96,6 +96,22 @@ TEST(ScorerDoubleValueTest, Score) {
   // EXPECT_EQ(scorer.Score(program), 1'000'000'000'000);
 }
 
+TEST(ScorerDoubleValueTest, ScoreUndersizedResults) {
+  viaevo::RandomMock gen({21});
+  viaevo::ScorerDoubleValue scorer(gen, 5);
+
+  ProgramMock program;
+
+  // last_results() can be empty or shorter than the expected 11 slots when the
+  // ELF process terminates before its results are read back. Score must not
+  // read out of bounds; it should return 0.
+  program.set_last_results({});
+  EXPECT_EQ(scorer.Score(program), 0);
+
+  program.set_last_results({20, -1, -1});
+  EXPECT_EQ(scorer.Score(program), 0);
+}
+
 TEST(ScorerDoubleValueTest, MaxScore) {
   viaevo::RandomMock gen({21});
   EXPECT_EQ(gen(), 21);

@@ -7,6 +7,9 @@
 
 #include <assert.h>
 
+// TODO: Remove relative path.
+#include "../../scorer/scorer_util.h"
+
 namespace viaevo {
 
 ScorerDoubleValue::ScorerDoubleValue(Random &gen,
@@ -19,6 +22,9 @@ ScorerDoubleValue::ScorerDoubleValue(Random &gen,
 
 long long ScorerDoubleValue::Score(const Program &program) const {
   const std::vector<int> &results = program.last_results();
+  if (!ResultsHaveMinSize(results, 11, "ScorerDoubleValue::Score"))
+    return 0;
+
   long long score = 0;
 
   // If any of the results exactly matches 2 * current_inputs_[0], increase the

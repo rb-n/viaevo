@@ -7,6 +7,9 @@
 
 #include <assert.h>
 
+// TODO: Remove relative path.
+#include "../../scorer/scorer_util.h"
+
 namespace viaevo {
 
 ScorerGuessValue::ScorerGuessValue(int value) : value_(value) {
@@ -15,6 +18,9 @@ ScorerGuessValue::ScorerGuessValue(int value) : value_(value) {
 
 long long ScorerGuessValue::Score(const Program &program) const {
   const std::vector<int> &results = program.last_results();
+  if (!ResultsHaveMinSize(results, 11, "ScorerGuessValue::Score"))
+    return 0;
+
   long long score = 0;
 
   // value_ is expected in results[1]. If results[1] is unchanged, at least

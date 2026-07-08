@@ -7,6 +7,9 @@
 
 #include <assert.h>
 
+// TODO: Remove relative path.
+#include "../../scorer/scorer_util.h"
+
 namespace viaevo {
 
 ScorerSumTwo::ScorerSumTwo(Random &gen, int number_of_copies_in_current_inputs)
@@ -19,6 +22,9 @@ ScorerSumTwo::ScorerSumTwo(Random &gen, int number_of_copies_in_current_inputs)
 
 long long ScorerSumTwo::Score(const Program &program) const {
   const std::vector<int> &results = program.last_results();
+  if (!ResultsHaveMinSize(results, 11, "ScorerSumTwo::Score"))
+    return 0;
+
   long long score = 0;
 
   // If any of the results exactly matches the expected_value_, increase the

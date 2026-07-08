@@ -93,6 +93,22 @@ TEST(ScorerSumTwoTest, Score) {
   EXPECT_EQ(scorer.Score(program), 112);
 }
 
+TEST(ScorerSumTwoTest, ScoreUndersizedResults) {
+  viaevo::RandomMock gen({28, 56});
+  viaevo::ScorerSumTwo scorer(gen, 2);
+
+  ProgramMock program;
+
+  // last_results() can be empty or shorter than the expected 11 slots when the
+  // ELF process terminates before its results are read back. Score must not
+  // read out of bounds; it should return 0.
+  program.set_last_results({});
+  EXPECT_EQ(scorer.Score(program), 0);
+
+  program.set_last_results({20, 0, 0});
+  EXPECT_EQ(scorer.Score(program), 0);
+}
+
 TEST(ScorerSumTwoTest, MaxScore) {
   viaevo::RandomMock gen({14, 42});
   EXPECT_EQ(gen(), 14);

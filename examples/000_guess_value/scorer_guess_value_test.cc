@@ -90,6 +90,21 @@ TEST(ScorerGuessValueTest, Score) {
   EXPECT_EQ(scorer1024.Score(program), 48);
 }
 
+TEST(ScorerGuessValueTest, ScoreUndersizedResults) {
+  viaevo::ScorerGuessValue scorer(42);
+
+  ProgramMock program;
+
+  // last_results() can be empty or shorter than the expected 11 slots when the
+  // ELF process terminates before its results are read back. Score must not
+  // read out of bounds; it should return 0.
+  program.set_last_results({});
+  EXPECT_EQ(scorer.Score(program), 0);
+
+  program.set_last_results({30, -1, -1});
+  EXPECT_EQ(scorer.Score(program), 0);
+}
+
 TEST(ScorerGuessValueTest, MaxScore) {
   viaevo::ScorerGuessValue scorer1(42);
   // Max score should be 52 (20 for changing results[1] and +1 for each
