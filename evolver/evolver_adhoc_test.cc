@@ -224,4 +224,68 @@ TEST(EvolverAdHocTest, InitializeProgramsToAllNops) {
   }
 }
 
+TEST(EvolverAdHocTest, CreateOffspring) {
+  viaevo::RandomMock gen({7, 17});
+
+  viaevo::MutatorPointRandom mutator(gen);
+
+  viaevo::ScorerMarkedMock scorer({}, 20, {}, {0});
+
+  viaevo::EvolverAdHoc evolver("elfs/simple_small", 3, 1, 2, scorer, mutator,
+                               gen, 1, 1);
+
+  auto &programs = evolver.programs();
+  EXPECT_EQ(programs.size(), 5); // mu + lambda
+
+  // Mark the mu_ parents (0..2) distinctly; mark the lambda_ offspring slots
+  // (3..4) with sentinels that are not any parent mark.
+  for (int i = 0; i < 5; ++i) {
+    std::vector<char> code = programs[i]->GetElfCode();
+    code[100] = (i < 3) ? (0xA0 + i) : (0xF0 + i);
+    programs[i]->SetElfCode(code);
+  }
+
+  evolver.CreateOffspring();
+
+  // Each offspring is a (single-bit-mutated) copy of one of the mu_ parents, so
+  // its mark must now equal one of the parent marks (the bit flip lands well
+  // away from index 100 for the mocked RNG stream).
+  for (int i = 3; i < 5; ++i) {
+    char mark = programs[i]->GetElfCode()[100];
+    EXPECT_TRUE(mark == '\xA0' || mark == '\xA1' || mark == '\xA2')
+        << "offspring " << i << " mark: " << (int)(unsigned char)mark;
+  }
+}
+
+TEST(EvolverAdHocTest, EvaluatePrograms) {
+  viaevo::RandomMock gen({7, 17});
+
+  viaevo::MutatorPointRandom mutator(gen);
+
+  viaevo::ScorerMarkedMock scorer({{0xA0, 2}, {0xA1, 5}}, 20, {},
+                                  {0, 1, 2, 3, 9});
+
+  viaevo::EvolverAdHoc evolver("elfs/simple_small", 3, 1, 2, scorer, mutator,
+                               gen, 1, 1);
+
+  auto &programs = evolver.programs();
+  for (int i = 0; i < 5; ++i) {
+    std::vector<char> code = programs[i]->GetElfCode();
+    code[100] = 0xA0 + i;
+    programs[i]->SetElfCode(code);
+  }
+
+  // Pre-fill with garbage to confirm EvaluatePrograms clears before scoring.
+  std::vector<long long> current_scores{99, 99, 99, 99, 99};
+  int sigalarms = evolver.EvaluatePrograms(current_scores);
+
+  // Scores reflect each program's mark; unknown marks (0xA2..0xA4) score 0.
+  EXPECT_EQ(current_scores[0], 2); // 0xA0
+  EXPECT_EQ(current_scores[1], 5); // 0xA1
+  EXPECT_EQ(current_scores[2], 0); // 0xA2 (unknown mark)
+  EXPECT_EQ(current_scores[3], 0);
+  EXPECT_EQ(current_scores[4], 0);
+  EXPECT_GE(sigalarms, 0);
+}
+
 } // namespace

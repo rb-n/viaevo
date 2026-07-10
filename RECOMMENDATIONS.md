@@ -216,10 +216,11 @@ guard it, or compute symbol data eagerly once at startup.
 
 ### 2.4 Const-correctness and small idioms
 
-- `Scorer::current_inputs()` (`scorer.h:38`) is non-const but returns a const
-  ref; it should be `const`. Several `Program` getters are fine.
-- `Program::Create(const std::string filename)` takes the string by value with
-  no need; use `const std::string&` or `std::string_view`.
+- **[DONE]** `Scorer::current_inputs()` (`scorer.h:38`) is non-const but returns
+  a const ref; it should be `const`. Several `Program` getters are fine.
+- **[DONE]** `Program::Create(const std::string filename)` takes the string by
+  value with no need; now `const std::string&`. (`std::string_view` would need
+  `.c_str()`/map-key adjustments; the const ref was the minimal fix.)
 - The `// TODO: Remove relative paths.` includes (`../mutator/...`) appear
   throughout. Set up include paths in the Bazel `BUILD` files (`includes` /
   `strip_include_prefix`) and use `#include "viaevo/mutator/mutator.h"`. This
@@ -240,20 +241,23 @@ serialize the exact config alongside results for reproducibility.
 
 ### 2.6 Abstract the `Evolver`
 
-The header comment already anticipates this: extract an `Evolver` interface and
-make `EvolverAdHoc` one strategy. That unlocks comparing (µ+λ), tournament
-selection, NSGA-II (for multi-objective MNIST), MAP-Elites, etc., without
-touching `main.cc`. The three TODO'd stages (`SelectParents`,
-`CreateOffspring`, `EvaluatePrograms`) should become separately testable
-methods as the TODO at `evolver_adhoc.cc:64` notes.
+**[PARTIALLY DONE]** Extracted an abstract `Evolver` interface
+(`@/home/baran/prjs/viaevo/evolver/evolver.h`) with a pure-virtual `Run()`, and
+made `EvolverAdHoc` derive from it. The three stages are now separate,
+unit-tested member functions: `SelectParents`, `CreateOffspring`, and
+`EvaluatePrograms` (see `EvolverAdHocTest.CreateOffspring` /
+`EvolverAdHocTest.EvaluatePrograms`). Still open: adding concrete alternative
+strategies (tournament selection, NSGA-II for multi-objective MNIST, MAP-Elites,
+etc.) behind the interface so `main.cc` can select among them.
 
 ### 2.7 Minor
 
 - Prefer `std::byte` or `uint8_t` over `char` for machine code buffers to avoid
   signedness surprises in the bit-flip math.
-- The bit-flip in `mutator_point_last_instruction.cc:38` uses `1 << bit_pos`
-  where `bit_pos` can be up to 7 — fine, but use `uint8_t` and
-  `(1u << bit_pos)` to be explicit.
+- **[DONE]** The bit-flip in `mutator_point_last_instruction.cc` (and
+  `mutator_point_random.cc`) now uses `(1u << bit_pos)` to avoid a signed shift
+  into the char code buffer. (The broader `char` -> `uint8_t`/`std::byte` buffer
+  type change is deferred to the `Program`/`ElfImage` refactor, §2.2.)
 - Consider `std::span` (C++20) for the code/inputs accessors to avoid copying
   whole `std::vector<char>` on every `GetElfCode()` call — currently every
   mutation copies the full 3,300-byte `main` twice.

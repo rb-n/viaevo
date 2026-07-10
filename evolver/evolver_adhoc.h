@@ -9,6 +9,7 @@
 #include <memory>
 #include <vector>
 
+#include "evolver.h"
 // TODO: Remove relative paths.
 #include "../mutator/mutator.h"
 #include "../program/program.h"
@@ -21,10 +22,10 @@ namespace viaevo {
 // evaluation, and selection. EvolverAdHoc's implementation is inspired by
 // Genetic Programming and (mu + lambda) Evolution Strategy (with stochastic
 // ranking). The current implementation probably does not match any of these
-// exactly. Eventually, it would be worthwhile to create an abstract base class
-// Evolver specifying a generic interface and a set of concrete derived classes
-// reflecting common approaches in Evolutionary Computation.
-class EvolverAdHoc {
+// exactly. EvolverAdHoc is one concrete strategy behind the abstract Evolver
+// interface; further strategies reflecting common approaches in Evolutionary
+// Computation can be added as additional Evolver subclasses.
+class EvolverAdHoc : public Evolver {
 public:
   EvolverAdHoc(std::string elf_filename, int mu, int phi, int lambda,
                Scorer &scorer, Mutator &mutator, Random &gen,
@@ -34,8 +35,16 @@ public:
                bool initialize_programs_to_all_nops = false);
   // Selects mu_ parents by bringing them to the front of programs_.
   virtual void SelectParents(std::vector<long long> &current_scores);
+  // Creates lambda_ offspring in the last lambda_ elements of programs_ from
+  // the first mu_ elements (parents), using mutator_.
+  virtual void CreateOffspring();
+  // Resets current_scores to zero, then runs evaluations_per_program_ rounds of
+  // (ResetInputs + parallel execute + score), followed by results-history
+  // scoring. current_scores must already be sized mu_ + lambda_. Returns the
+  // number of SIGALRM timeouts observed during the generation.
+  virtual int EvaluatePrograms(std::vector<long long> &current_scores);
   // Runs the evolution.
-  virtual void Run();
+  void Run() override;
 
   const std::vector<std::shared_ptr<Program>> &programs() { return programs_; }
   bool score_results_history() const { return score_results_history_; }

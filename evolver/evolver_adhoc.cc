@@ -62,8 +62,58 @@ void EvolverAdHoc::SelectParents(std::vector<long long> &scores) {
   }
 }
 
-// TODO: Put the three stages in individual member functions and add unit
-// tests for those.
+void EvolverAdHoc::CreateOffspring() {
+  for (int i = 0; i < lambda_; ++i) {
+    // Note: The same program may be selected as both parent1 and parent2
+    // and this is ok for e.g. random recombinations.
+    mutator_.Mutate(programs_[mu_ + i], programs_[gen_() % mu_],
+                    programs_[gen_() % mu_]);
+  }
+  // Note: Consider shuffling programs in the vector, would complicate unit
+  // testing though.
+}
+
+int EvolverAdHoc::EvaluatePrograms(std::vector<long long> &current_scores) {
+  std::fill(current_scores.begin(), current_scores.end(), 0);
+
+  // results_history is local to a single generation: it is accumulated across
+  // the evaluations below and consumed by ScoreResultsHistory before returning.
+  std::vector<std::vector<std::vector<int>>> results_history;
+  if (score_results_history_) {
+    results_history.resize(mu_ + lambda_);
+  }
+
+  // Count SIGALRMs - timeouts due to a long running program (e.g. inf loop).
+  std::atomic<int> sigalarms_count(0);
+  std::vector<int> indices(mu_ + lambda_, 0);
+  std::iota(indices.begin(), indices.end(), 0);
+  for (int j = 0; j < evaluations_per_program_; ++j) {
+    scorer_.ResetInputs();
+    std::for_each(
+        std::execution::par, indices.begin(), indices.end(),
+        [this, &current_scores, &results_history, &sigalarms_count](int i) {
+          programs_[i]->SetElfInputs(scorer_.current_inputs());
+          programs_[i]->Execute();
+          long long score = scorer_.Score(*programs_[i]);
+          current_scores[i] += score;
+          if (score_results_history_) {
+            results_history[i].push_back(programs_[i]->last_results());
+          }
+          if (programs_[i]->last_stop_signal() == SIGALRM) {
+            ++sigalarms_count;
+          }
+        });
+  }
+
+  if (score_results_history_) {
+    for (int i = 0; i < mu_ + lambda_; ++i) {
+      current_scores[i] += scorer_.ScoreResultsHistory(results_history[i]);
+    }
+  }
+
+  return sigalarms_count;
+}
+
 void EvolverAdHoc::Run() {
   std::cout.imbue(std::locale(""));
   long long best_overall_score = 0;
@@ -73,68 +123,19 @@ void EvolverAdHoc::Run() {
   // Current scores set by the scorer_ reflect an accumulated performance of
   // programs on recent (sets of) inputs.
   std::vector<long long> current_scores(mu_ + lambda_, 0);
-  std::vector<std::vector<std::vector<int>>> results_history;
-  if (score_results_history_) {
-    results_history.resize(mu_ + lambda_);
-  }
 
   while (current_generation_ < max_generations_) {
     ++current_generation_;
 
     // Stage 1 (SelectParents): Bring the mu_ parents to the "front" of
     // programs_.
-    // --------------------------------------------------------------
     SelectParents(current_scores);
     // Stage 2 (CreateOffspring): Create lambda_ offspring in the last lambda_
-    // elements of programs_ using the first mu_ elements of programs as
-    // parents.
-    // --------------------------------------------------------------------
-    for (int i = 0; i < lambda_; ++i) {
-      // Note: The same program may be selected as both parent1 and parent2
-      // and this is ok for e.g. random recombinations.
-      mutator_.Mutate(programs_[mu_ + i], programs_[gen_() % mu_],
-                      programs_[gen_() % mu_]);
-    }
-    // Note: Consider shuffling programs in the vector, would complicate unit
-    // testing though.
-
+    // elements of programs_ using the first mu_ elements as parents.
+    CreateOffspring();
     // Stage 3 (EvaluatePrograms): Update programs_ inputs, execute and score
     // programs_.
-    // -----------------------------------------
-    std::fill(current_scores.begin(), current_scores.end(), 0);
-    if (score_results_history_) {
-      for (auto &results : results_history) {
-        results.clear();
-      }
-    }
-
-    // Count SIGALRMs - timeouts due to a long running program (e.g. inf loop).
-    std::atomic<int> sigalarms_count(0);
-    std::vector<int> indices(mu_ + lambda_, 0);
-    std::iota(indices.begin(), indices.end(), 0);
-    for (int j = 0; j < evaluations_per_program_; ++j) {
-      scorer_.ResetInputs();
-      std::for_each(
-          std::execution::par, indices.begin(), indices.end(),
-          [this, &current_scores, &results_history, &sigalarms_count](int i) {
-            programs_[i]->SetElfInputs(scorer_.current_inputs());
-            programs_[i]->Execute();
-            long long score = scorer_.Score(*programs_[i]);
-            current_scores[i] += score;
-            if (score_results_history_) {
-              results_history[i].push_back(programs_[i]->last_results());
-            }
-            if (programs_[i]->last_stop_signal() == SIGALRM) {
-              ++sigalarms_count;
-            }
-          });
-    }
-
-    if (score_results_history_) {
-      for (int i = 0; i < mu_ + lambda_; ++i) {
-        current_scores[i] += scorer_.ScoreResultsHistory(results_history[i]);
-      }
-    }
+    int sigalarms_count = EvaluatePrograms(current_scores);
 
     long long best_generation_score = 0;
     std::unordered_map<long long, int> rip_offset_counts;

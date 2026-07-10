@@ -2,6 +2,14 @@ load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
 cc_library(
+    name = "evolver",
+    hdrs = ["evolver.h"],
+    visibility = [
+        "//examples:__subpackages__",
+    ],
+)
+
+cc_library(
     name = "evolver_adhoc",
     srcs = ["evolver_adhoc.cc"],
     hdrs = ["evolver_adhoc.h"],
@@ -10,6 +18,7 @@ cc_library(
         "//examples:__subpackages__",
     ],
     deps = [
+        ":evolver",
         "//mutator",
         "//program",
         "//scorer",
