@@ -155,7 +155,7 @@ bool Program::IsInitialized() const {
           expected_ptrace_stops_ != -1);
 }
 
-std::shared_ptr<Program> Program::Create(const std::string filename) {
+std::shared_ptr<Program> Program::Create(const std::string &filename) {
   if (symbol_data_map_.count(filename) == 0 ||
       expected_ptrace_stops_map_.count(filename) == 0) {
     Program p(filename.c_str());

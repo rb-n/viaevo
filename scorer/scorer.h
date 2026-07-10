@@ -35,7 +35,7 @@ public:
   // Generates new current_inputs_ for a new round of evaluation of Programs.
   virtual void ResetInputs() = 0;
 
-  const std::vector<int> &current_inputs() { return current_inputs_; };
+  const std::vector<int> &current_inputs() const { return current_inputs_; };
 
 protected:
   // Inputs for Programs for the current iteration of evaluation.

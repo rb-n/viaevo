@@ -19,7 +19,7 @@ void MutatorPointRandom::Mutate(std::shared_ptr<Program> target,
   auto pos = random_number % (code.size() * element_size);
   auto index = pos / element_size;
   auto bit_pos = pos % element_size;
-  code[index] ^= (1 << bit_pos);
+  code[index] ^= (1u << bit_pos);
 
   target->SetElfCode(code);
 }

@@ -41,7 +41,7 @@ public:
   bool IsInitialized() const;
 
   // Factory method to create Program instances based on one of the //elfs.
-  static std::shared_ptr<Program> Create(const std::string filename);
+  static std::shared_ptr<Program> Create(const std::string &filename);
 
   // Execute the program and populate last_results_. At most max_ptrace_stops
   // will be allowed for the elf process before the elf process is terminated.

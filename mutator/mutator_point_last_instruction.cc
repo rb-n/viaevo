@@ -37,7 +37,7 @@ void MutatorPointLastInstruction::Mutate(std::shared_ptr<Program> target,
       random_number % std::min(kMaxInstructionSizeInBytes * 8, bits_left);
   auto index = pos / element_size_in_bits;
   auto bit_pos = pos % element_size_in_bits;
-  code[index] ^= (1 << bit_pos);
+  code[index] ^= (1u << bit_pos);
 
   target->SetElfCode(code);
 }
