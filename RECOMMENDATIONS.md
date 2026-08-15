@@ -778,6 +778,11 @@ minor: `best_generation_results` holds only the results of the program's
 
 ### 12.4 Seccomp hardening: `ptrace` need not be in the allowlist
 
+**[DONE]** `RunElfProcess` now calls `PTRACE_TRACEME` before installing the
+seccomp filter, and `ptrace` is removed from the allowlist — the ELF process
+(including its evolved code) can no longer invoke `ptrace` at all. Original
+finding below.
+
 `RunElfProcess` installs the seccomp filter *before* calling `PTRACE_TRACEME`,
 which forces `ptrace` into the allowlist
 (`@/home/baran/prjs/viaevo/program/program.cc:100`) — so the evolved program

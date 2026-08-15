@@ -95,8 +95,10 @@ const struct sock_fprog &GetSeccompProgram() {
     seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(munmap), 0);
     seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(getrandom), 0);
 
-    // The system call below is required for ptrace.
-    seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(ptrace), 0);
+    // NOTE: ptrace is deliberately NOT in the allowlist. The child's only
+    // ptrace call (PTRACE_TRACEME in RunElfProcess) happens before this filter
+    // is installed, so the ELF process itself - including its evolved code -
+    // can never invoke ptrace.
 
     // Export the compiled classic-BPF program through a memfd, then read it
     // back into a vector of sock_filter instructions.
@@ -507,14 +509,19 @@ void Program::RunElfProcess() {
   //
   // PR_SET_NO_NEW_PRIVS is required to install a filter without privileges;
   // libseccomp's seccomp_load used to set this for us.
+  //
+  // PTRACE_TRACEME is called BEFORE the filter is installed so that ptrace
+  // does not need to be in the seccomp allowlist - the ELF process (and any
+  // evolved code in it) can then never invoke ptrace itself.
   if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) == -1)
     child_fail("prctl(PR_SET_NO_NEW_PRIVS) failed");
-  if (syscall(SYS_seccomp, SECCOMP_SET_MODE_FILTER, 0, &GetSeccompProgram()) !=
-      0)
-    child_fail("seccomp(SECCOMP_SET_MODE_FILTER) failed");
 
   if (ptrace(PTRACE_TRACEME, 0, NULL, NULL) == -1)
     child_fail("PTRACE_TRACEME failed");
+
+  if (syscall(SYS_seccomp, SECCOMP_SET_MODE_FILTER, 0, &GetSeccompProgram()) !=
+      0)
+    child_fail("seccomp(SECCOMP_SET_MODE_FILTER) failed");
 
   // Execute directly from the in-memory ELF file descriptor. execveat with an
   // empty path and AT_EMPTY_PATH is the underlying mechanism fexecve uses; we
