@@ -5,9 +5,6 @@
 
 #include "program.h"
 
-#include "elf_layout.h"
-
-#include <elf.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <linux/filter.h>
@@ -28,6 +25,7 @@
 
 #include <fstream>
 #include <string>
+#include <vector>
 
 namespace viaevo {
 
@@ -188,88 +186,8 @@ void RemoveBreakpoint(pid_t pid, unsigned long long addr, long original_word) {
 
 } // namespace
 
-Program::Program(const char *filename) {
-  SetupElfInMemory(filename);
-  symbol_data_ = ResolveElfSymbolData(elf_mem_fd_);
-}
-
-Program::~Program() {
-  if (elf_mem_fd_ != -1)
-    close(elf_mem_fd_);
-}
-
-bool Program::IsInitialized() const {
-  return (elf_mem_fd_ != -1 &&
-          symbol_data_.main_offset_in_elf_ != (Elf64_Addr)-1 &&
-          symbol_data_.main_st_size_ != (uint64_t)-1 &&
-          symbol_data_.results_offset_in_data_ != (Elf64_Addr)-1 &&
-          symbol_data_.results_st_size_ != (uint64_t)-1);
-}
-
 std::shared_ptr<Program> Program::Create(const std::string &filename) {
   return std::make_shared<Program>(filename.c_str());
-}
-
-void Program::SetupElfInMemory(const char *filename) {
-  int fd_from;
-
-  if (elf_mem_fd_ != -1)
-    close(elf_mem_fd_);
-
-  // In memory files for all instances of Program have the same filename. This
-  // should be ok as per memfd_create(2): "... as such multiple files can have
-  // the same name without any side effects."
-  elf_mem_fd_ = memfd_create("viaevo_program", 0);
-  if (elf_mem_fd_ == -1)
-    myfail("memfd_create failed");
-
-  fd_from = open(filename, O_RDONLY);
-  if (fd_from == -1)
-    myfail("open failed");
-
-  WriteFile(fd_from, elf_mem_fd_);
-
-  close(fd_from);
-}
-
-void Program::WriteFile(int fd_from, int fd_to) {
-  char buffer[4096];
-  ssize_t nread;
-
-  // Based on https://stackoverflow.com/a/2180788
-  while (nread = read(fd_from, buffer, sizeof buffer), nread > 0) {
-    char *out_ptr = buffer;
-    ssize_t nwritten;
-
-    do {
-      nwritten = write(fd_to, out_ptr, nread);
-      if (nwritten >= 0) {
-        nread -= nwritten;
-        out_ptr += nwritten;
-      } else if (errno != EINTR) {
-        myfail("write failed");
-      }
-    } while (nread > 0);
-  }
-}
-
-void Program::SaveElf(const char *filename) {
-  int fd_to;
-
-  if (elf_mem_fd_ == -1)
-    myfail("invalid elf_mem_fd_");
-
-  off_t offset = lseek(elf_mem_fd_, 0, SEEK_SET);
-  if (offset != 0)
-    myfail("lseek to 0 failed");
-
-  fd_to = creat(filename, 0666);
-  if (fd_to == -1)
-    myfail("creat failed");
-
-  WriteFile(elf_mem_fd_, fd_to);
-
-  close(fd_to);
 }
 
 int Program::Execute(ExecuteMode mode) {
@@ -386,7 +304,8 @@ int Program::MonitorElfProcess(pid_t elf_pid, ExecuteMode mode) {
           // The ELF process completed execveat; its runtime memory layout is
           // now in place.
           ReadProcStatAddresses(elf_pid, &start_code, &start_data);
-          main_addr = start_code + symbol_data_.main_offset_in_text_;
+          main_addr =
+              start_code + elf_image_.symbol_data().main_offset_in_text_;
           if (mode == ExecuteMode::kRunToCompletion) {
             state = State::kRunningToCompletion;
             if (ptrace(PTRACE_SYSCALL, elf_pid, 0, 0) == -1)
@@ -528,8 +447,8 @@ void Program::RunElfProcess() {
   // call it directly to avoid any dependency on /proc and to match the intended
   // design. Use the raw syscall for portability across glibc versions (the
   // execveat() wrapper was only added in glibc 2.34).
-  syscall(SYS_execveat, elf_mem_fd_, "", (char *const *)av, (char *const *)ep,
-          AT_EMPTY_PATH);
+  syscall(SYS_execveat, elf_image_.fd(), "", (char *const *)av,
+          (char *const *)ep, AT_EMPTY_PATH);
   // execveat only returns on failure.
   child_fail("execveat failed");
 }
@@ -537,32 +456,34 @@ void Program::RunElfProcess() {
 void Program::ReadLastResultsAndLastRipOffsetFromElfProcess(
     pid_t elf_pid, unsigned long long rip, unsigned long start_code,
     unsigned long start_data) {
+  const SymbolData &symbol_data = elf_image_.symbol_data();
+
   // Compute in signed arithmetic so that an rip outside main (e.g. before main
   // starts) yields a negative offset rather than a huge unsigned value.
   last_rip_offset_ = (long long)rip - (long long)start_code -
-                     (long long)symbol_data_.main_offset_in_text_;
+                     (long long)symbol_data.main_offset_in_text_;
 
   struct iovec local[1];
   struct iovec remote[1];
   ssize_t nread;
 
-  if (symbol_data_.results_st_size_ %
+  if (symbol_data.results_st_size_ %
           sizeof(decltype(last_results_)::value_type) !=
       0)
     myfail("results_st_size_ mismatch");
 
-  last_results_.resize(symbol_data_.results_st_size_ /
+  last_results_.resize(symbol_data.results_st_size_ /
                        sizeof(decltype(last_results_)::value_type));
   // printf("last_results_ size: %ld\n", last_results_.size());
 
   local[0].iov_base = last_results_.data();
-  local[0].iov_len = symbol_data_.results_st_size_;
+  local[0].iov_len = symbol_data.results_st_size_;
   remote[0].iov_base =
-      (void *)(start_data + symbol_data_.results_offset_in_data_);
-  remote[0].iov_len = symbol_data_.results_st_size_;
+      (void *)(start_data + symbol_data.results_offset_in_data_);
+  remote[0].iov_len = symbol_data.results_st_size_;
 
   nread = process_vm_readv(elf_pid, local, 1, remote, 1, 0);
-  if (nread != (ssize_t)symbol_data_.results_st_size_)
+  if (nread != (ssize_t)symbol_data.results_st_size_)
     myfail("process_vm_readv failed");
 }
 
@@ -573,94 +494,6 @@ void Program::ClearLastState() {
   last_term_signal_ = kInvalidSignal;
   last_stop_signal_ = kInvalidSignal;
   last_results_.clear();
-}
-
-std::vector<char> Program::GetElfCode() const {
-  if (symbol_data_.main_offset_in_elf_ == (Elf64_Addr)-1)
-    myfail("location to get main unknown");
-
-  off_t offset = lseek(elf_mem_fd_, symbol_data_.main_offset_in_elf_, SEEK_SET);
-  if (offset != (off_t)symbol_data_.main_offset_in_elf_)
-    myfail("get elf code lseek failed");
-
-  std::vector<char> elf_code(symbol_data_.main_st_size_);
-  ssize_t nread =
-      read(elf_mem_fd_, elf_code.data(), symbol_data_.main_st_size_);
-  if (nread != (ssize_t)symbol_data_.main_st_size_)
-    myfail("getting elf code failed");
-
-  return elf_code;
-}
-
-void Program::SetElfCode(const std::vector<char> &elf_code) {
-  if (elf_code.size() != symbol_data_.main_st_size_)
-    myfail("elf code to set has incorrect size");
-
-  if (symbol_data_.main_offset_in_elf_ == (Elf64_Addr)-1)
-    myfail("location to set main unknown");
-
-  off_t offset = lseek(elf_mem_fd_, symbol_data_.main_offset_in_elf_, SEEK_SET);
-  if (offset != (off_t)symbol_data_.main_offset_in_elf_)
-    myfail("set elf code lseek failed");
-
-  ssize_t nwritten = write(elf_mem_fd_, elf_code.data(), elf_code.size());
-  if (nwritten != (off_t)elf_code.size())
-    myfail("setting elf code failed");
-}
-
-void Program::SetElfCodeToAllNops() {
-  std::vector<char> new_elf_code(symbol_data_.main_st_size_, 0x90);
-  SetElfCode(new_elf_code);
-}
-
-std::vector<int> Program::GetElfInputs() const {
-  if (symbol_data_.inputs_offset_in_elf_ == (Elf64_Addr)-1)
-    myfail("location to get inputs unknown");
-
-  std::vector<int> elf_inputs;
-
-  if (symbol_data_.inputs_st_size_ % sizeof(decltype(elf_inputs)::value_type) !=
-      0)
-    myfail("inputs_st_size_ mismatch");
-
-  elf_inputs.resize(symbol_data_.inputs_st_size_ /
-                    sizeof(decltype(elf_inputs)::value_type));
-
-  off_t offset =
-      lseek(elf_mem_fd_, symbol_data_.inputs_offset_in_elf_, SEEK_SET);
-  if (offset != (off_t)symbol_data_.inputs_offset_in_elf_)
-    myfail("get elf inputs lseek failed");
-
-  ssize_t nread =
-      read(elf_mem_fd_, elf_inputs.data(), symbol_data_.inputs_st_size_);
-  if (nread != (ssize_t)symbol_data_.inputs_st_size_)
-    myfail("getting elf inputs failed");
-
-  return elf_inputs;
-}
-
-void Program::SetElfInputs(const std::vector<int> &elf_inputs) {
-  if (symbol_data_.inputs_offset_in_elf_ == (Elf64_Addr)-1)
-    myfail("location to set inputs unknown");
-
-  auto element_size =
-      sizeof(std::remove_reference_t<decltype(elf_inputs)>::value_type);
-
-  if (symbol_data_.inputs_st_size_ % element_size != 0)
-    myfail("inputs_st_size_ mismatch");
-
-  if (elf_inputs.size() * element_size > symbol_data_.inputs_st_size_)
-    myfail("elf inputs to set are too large");
-
-  off_t offset =
-      lseek(elf_mem_fd_, symbol_data_.inputs_offset_in_elf_, SEEK_SET);
-  if (offset != (off_t)symbol_data_.inputs_offset_in_elf_)
-    myfail("set elf inputs lseek failed");
-
-  ssize_t nwritten =
-      write(elf_mem_fd_, elf_inputs.data(), elf_inputs.size() * element_size);
-  if (nwritten != (off_t)(elf_inputs.size() * element_size))
-    myfail("setting elf inputs failed");
 }
 
 } // namespace viaevo

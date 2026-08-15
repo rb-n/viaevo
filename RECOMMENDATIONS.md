@@ -185,9 +185,13 @@ the evolver should tolerate. At minimum, distinguish *fatal* (config) from
 memoization, process spawning, ptrace monitoring, seccomp policy, result
 reading, and code mutation accessors. Consider splitting:
 
-- `ElfImage` — owns the `memfd`, knows symbol offsets, `GetElfCode/SetElfCode/
-  GetElfInputs/SetElfInputs/SaveElf`. Pure data + ELF knowledge, trivially
-  testable without forking.
+- **[DONE]** `ElfImage` — owns the `memfd` and the resolved `SymbolData`, with
+  `GetCode/SetCode/SetCodeToAllNops/GetInputs/SetInputs/Save`
+  (`program/elf_image.{h,cc}`, unit-tested without forking in
+  `program/elf_image_test.cc`). `Program` now holds an `ElfImage` member and
+  delegates its `GetElfCode`-style accessors to it, keeping the external API
+  unchanged; `program.cc` retains only execution (vfork/exec, seccomp, ptrace
+  monitoring, results reading).
 - **[DONE]** `ElfLayout`/`SymbolData` resolver — the `InitializeElfSymbolData`
   logic (~140 lines) is now a standalone free function `ResolveElfSymbolData(int
   fd)` with the `SymbolData` struct in `@/home/baran/prjs/viaevo/program/elf_layout.h`

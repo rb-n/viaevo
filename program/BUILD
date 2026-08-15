@@ -24,6 +24,28 @@ cc_test(
 )
 
 cc_library(
+    name = "elf_image",
+    srcs = ["elf_image.cc"],
+    hdrs = ["elf_image.h"],
+    deps = [
+        ":elf_layout",
+    ],
+)
+
+cc_test(
+    name = "elf_image_test",
+    size = "small",
+    srcs = ["elf_image_test.cc"],
+    data = [
+        "//elfs:simple_small",
+    ],
+    deps = [
+        ":elf_image",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_library(
     name = "program",
     srcs = ["program.cc"],
     hdrs = ["program.h"],
@@ -34,7 +56,7 @@ cc_library(
         "//scorer:__pkg__",
     ],
     deps = [
-        ":elf_layout",
+        ":elf_image",
     ],
 )
 
