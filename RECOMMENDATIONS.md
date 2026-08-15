@@ -47,18 +47,14 @@ everything built on top, so fix them before the larger refactors.
   (`posix_spawn` was evaluated but rejected: it has no hook to run the required
   child-side `PTRACE_TRACEME` / seccomp install / `setitimer`.) A persistent
   worker-process pool (§8) remains as a separate, larger throughput
-  optimization. In
-  `@/home/baran/prjs/viaevo/evolver/evolver_adhoc.cc:114-130` programs are
-  executed in parallel. `Program::Execute` forks, installs seccomp, and
-  `ptrace`s. `fork()` in a multithreaded process only safely runs
-  async-signal-safe code in the child before `exec`; `seccomp_init` and friends
-  allocate and are not async-signal-safe. It mostly works, but it is a latent
-  source of the "random PTRACE_GETREGS failures" and "fork sometimes fails"
-  noted in the TODOs (`program.cc:286`, `program.cc:332-341`). Prefer
-  `posix_spawn`/`vfork`+`execveat` with a pre-built seccomp BPF program, or a
-  pool of pre-forked worker processes. See §8.
+  optimization.
 
-  *Why the alternatives are preferred over plain `fork()`:*
+  *Historical context — why plain `fork()` was a problem and why the
+  alternatives were preferred:* programs are executed in parallel
+  (`std::execution::par` in `EvaluatePrograms`), and the old `fork()`-based
+  `Program::Execute` ran allocation-heavy, non-async-signal-safe code
+  (libseccomp) in the child of a multithreaded process — a latent source of the
+  intermittent "random PTRACE_GETREGS failures" noted in the TODOs.
 
   - **The core problem with `fork()` here is the "fork-in-a-thread" hazard.**
     `fork()` duplicates only the calling thread but the *entire* address space,
@@ -536,9 +532,11 @@ Recommendations:
   tables can be regenerated and audited. Currently the many `*.log` files in the
   repo root are ad hoc; move them to a `results/` dir (and out of version
   control) and standardize the format.
-- **Repo hygiene:** the dozens of `simple_small_guess_*_rs_*.log` and
-  `bazel-*` symlinks in the root clutter the tree. `.gitignore` the bazel
-  symlinks and logs; keep only representative artifacts.
+- **[PARTIALLY DONE]** **Repo hygiene:** `.gitignore` now covers `/bazel-*` and
+  `/*.log`, and no logs are tracked in git. The dozens of
+  `simple_small_guess_*_rs_*.log` files still clutter the working directory,
+  though — move them into an ignored `results/` directory (which pairs with the
+  machine-readable run-record item above).
 - **CI:** add a GitHub Actions (or similar) job that builds and runs the unit
   tests in the sandbox. You have good test coverage (`*_test.cc` throughout) —
   make it gate changes.
@@ -687,3 +685,98 @@ A suggested order that front-loads correctness and high-leverage research:
     plus pause / checkpoint / reconfigure without leaving the terminal. Best
     after the `int3` switch (item 2) and the worker pool (item 3), which make
     evaluation robust enough to pause and reconfigure safely.
+
+---
+
+## 12. Additional findings (2026-08 review)
+
+New items found in a follow-up review after the §1 fixes and the
+`elf_layout`/`Evolver`-interface refactors landed. The first two are
+regressions in the selection logic and belong at the top of the roadmap
+alongside the remaining §1 work.
+
+### 12.1 φ (random-parent selection) is no longer implemented — regression
+
+`phi_` is stored by the `EvolverAdHoc` constructor but **never read anywhere**.
+The original implementation (commit `70db730`) selected the top `mu_ - phi_`
+programs via `std::nth_element` and then `random_shuffle`d the remainder so
+that `phi_` parents were chosen at random, exactly as the README's Methods
+section and every example's `--phi` flag help describe. The refactor in commit
+`56d4473` ("Select parents using scores kept in the Evolver") replaced this
+with a plain descending `stable_sort` in `SelectParents`
+(`@/home/baran/prjs/viaevo/evolver/evolver_adhoc.cc:42-63`) and silently
+dropped the φ behavior. Consequences:
+
+- Selection is now purely elitist; the stochastic-ranking-inspired mechanism
+  the README documents (and that the published trial results are attributed
+  to: "All trial runs were performed with µ = 60, φ = 10") does not exist in
+  the current code. Either reinstate it or update the README and deprecate the
+  flag — but reinstating is recommended, since random parents are the main
+  diversity-preservation mechanism this GA has.
+- Fix sketch: partition the top `mu_ - phi_` by score, then fill the remaining
+  `phi_` parent slots by sampling uniformly (via `gen_`, not
+  `std::random_shuffle`, which is removed in C++17) from the rest.
+
+### 12.2 Tie-breaking shuffle was dropped with it — neutral drift is impossible
+
+The same `56d4473` refactor also removed the pre-selection shuffle whose stated
+purpose was "prevent breaking ties the same way in each generation". With
+`stable_sort` and per-generation score reset, ties are resolved by index, and
+parents occupy indices `0..mu_-1`: an offspring with a score *equal* to a
+parent's can never displace it, and among zero-score programs (the common case
+early on, and the *only* case in the all-`nop` experiments) the initial parent
+set persists unchanged forever. This eliminates neutral drift — mutations
+cannot accumulate silently in the parent pool — which §4.3 and the neutrality
+literature in §6.3 identify as an important enabler for this kind of search.
+The README's all-`nop` stall result may be partly an artifact of this.
+Restore randomized tie-breaking (shuffle first, or sort a randomly-permuted
+index array), and consider re-running the all-`nop` experiment afterwards.
+
+### 12.3 Champion tracking compares scores from different input batches
+
+`Run()` updates `best_overall_score` by comparing generation-best scores that
+were measured on *different* randomly drawn inputs
+(`@/home/baran/prjs/viaevo/evolver/evolver_adhoc.cc:166`). For input-dependent
+tasks (MNIST), a program can become the saved champion merely by drawing easy
+samples. Evaluate would-be champions on a fixed held-out input set before
+updating `best_overall_score`/saving the ELF, and report both numbers. (Also
+minor: `best_generation_results` holds only the results of the program's
+*last* evaluation in the generation, which is a weak summary when
+`evaluations_per_program > 1`.)
+
+### 12.4 Seccomp hardening: `ptrace` need not be in the allowlist
+
+`RunElfProcess` installs the seccomp filter *before* calling `PTRACE_TRACEME`,
+which forces `ptrace` into the allowlist
+(`@/home/baran/prjs/viaevo/program/program.cc:100`) — so the evolved program
+itself is allowed to call `ptrace`. Reordering to `PTRACE_TRACEME` first, then
+installing the filter, lets `ptrace` be removed from the allowlist entirely.
+One less syscall the evolved code can reach.
+
+### 12.5 Small robustness nits
+
+- `Program::WriteFile` treats `read()` returning `-1` as EOF: the
+  `while (nread = read(...), nread > 0)` loop exits silently on error and does
+  not retry `EINTR` on the read side (`program.cc:199`). Fail loudly on
+  `nread == -1` (or retry on `EINTR`).
+- `GetSeccompProgram` ignores the return values of every `seccomp_rule_add`
+  call; a failed rule would surface only as a mysterious `SIGSYS` later. Check
+  them (a small macro/lambda keeps it readable).
+- The `google_benchmark` dependency in `MODULE.bazel` is unused — either drop
+  it or (better) use it: a microbenchmark of `Execute()` would give the worker
+  pool work (§8) a baseline to beat.
+- `.bazelrc` pins `-std=c++17`, while §2.5/§2.7 recommend C++20 features
+  (designated initializers, `std::span`). Bumping to `c++20` is a one-line
+  change and unblocks both.
+
+### 12.6 Documentation staleness to fix
+
+- The README's Methods section still describes the φ random-parent selection
+  that the code no longer performs (§12.1) — whichever way §12.1 is resolved,
+  the README and the `--phi` flag help must be reconciled with the code.
+- Several `@path:line` references in §§1–2 and §10 of this document have
+  drifted after the `elf_layout` extraction and other refactors (e.g.
+  `program.h:119` → the `last_rip_offset_` block is now around
+  `program.h:116-120`; `Program::Create` is now `program.cc:160-170`). Treat
+  line numbers in this file as approximate; the symbol names remain the
+  reliable anchors.
