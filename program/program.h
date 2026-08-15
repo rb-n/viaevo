@@ -13,6 +13,8 @@
 #include <unordered_map>
 #include <vector>
 
+#include "elf_layout.h"
+
 namespace viaevo {
 
 // Program reads ELFs and manages their modifications, execution and reading of
@@ -22,9 +24,6 @@ namespace viaevo {
 // testing). Instances should be created via the factory method Create for ELFs
 // in //elfs.
 class Program {
-protected:
-  struct SymbolData;
-
 public:
   // TODO: Allowing the default constructor to make it easier to subclass for
   // mocking in unit testing. May want to find a different approach.
@@ -84,9 +83,6 @@ private:
   // descriptor fd_to). Used by member functions SetupElfInMemory and SaveElf.
   void WriteFile(int fd_from, int fd_to);
 
-  // Find main() address (and length) and results address and lenght in the ELF.
-  void InitializeElfSymbolData();
-
   // Monitors the separate ELF process via ptrace stops. Also populates
   // last_results_. The value of max_ptrace_stops is passed from the Execute
   // method and has the same meaning here as there. Returns the number of ptrace
@@ -133,17 +129,8 @@ protected:
   // Results from the last completed execution of the program.
   std::vector<int> last_results_;
 
-  // ELF symbol table values and sizes for main and results.
-  struct SymbolData {
-    Elf64_Addr main_offset_in_elf_ = -1;  // offset from elf beginning
-    Elf64_Addr main_offset_in_text_ = -1; // offset from .text beginning
-    uint64_t main_st_size_ = -1;
-    Elf64_Addr inputs_offset_in_elf_ = -1; // offset from elf beginning
-    uint64_t inputs_st_size_ = -1;
-    Elf64_Addr results_offset_in_data_ = -1;
-    uint64_t results_st_size_ = -1;
-  };
-
+  // ELF symbol table values and sizes for main, inputs and results (see
+  // elf_layout.h).
   SymbolData symbol_data_;
 
   // Map elf name to its symbol data to "memoize" these and avoid computing

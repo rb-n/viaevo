@@ -192,10 +192,12 @@ reading, and code mutation accessors. Consider splitting:
 - `ElfImage` — owns the `memfd`, knows symbol offsets, `GetElfCode/SetElfCode/
   GetElfInputs/SetElfInputs/SaveElf`. Pure data + ELF knowledge, trivially
   testable without forking.
-- `ElfLayout`/`SymbolData` resolver — the `InitializeElfSymbolData` logic
-  (currently ~140 lines in one function) factored into a free function or small
-  class with its own tests. It mixes lseek/read error handling with parsing;
-  splitting makes both clearer.
+- **[DONE]** `ElfLayout`/`SymbolData` resolver — the `InitializeElfSymbolData`
+  logic (~140 lines) is now a standalone free function `ResolveElfSymbolData(int
+  fd)` with the `SymbolData` struct in `@/home/baran/prjs/viaevo/program/elf_layout.h`
+  / `elf_layout.cc`, unit-tested in `program/elf_layout_test.cc`. `Program` now
+  calls it from `Create`. (It still terminates on malformed input; the
+  recoverable-error split is tracked in §2.1.)
 - `Sandbox`/`Runner` — owns seccomp policy, fork/exec, ptrace loop, timeout. The
   allowed-syscall list and the alarm timer belong here, not interleaved in
   `Program`.

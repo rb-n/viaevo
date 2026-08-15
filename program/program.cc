@@ -5,6 +5,8 @@
 
 #include "program.h"
 
+#include "elf_layout.h"
+
 #include <elf.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -129,7 +131,7 @@ const struct sock_fprog &GetSeccompProgram() {
 
 } // namespace
 
-std::unordered_map<std::string, Program::SymbolData> Program::symbol_data_map_;
+std::unordered_map<std::string, SymbolData> Program::symbol_data_map_;
 
 std::unordered_map<std::string, int> Program::expected_ptrace_stops_map_;
 
@@ -159,7 +161,7 @@ std::shared_ptr<Program> Program::Create(const std::string &filename) {
   if (symbol_data_map_.count(filename) == 0 ||
       expected_ptrace_stops_map_.count(filename) == 0) {
     Program p(filename.c_str());
-    p.InitializeElfSymbolData();
+    p.symbol_data_ = ResolveElfSymbolData(p.elf_mem_fd_);
     symbol_data_map_[filename] = p.symbol_data_;
     expected_ptrace_stops_map_[filename] = p.Execute();
   }
@@ -227,148 +229,6 @@ void Program::SaveElf(const char *filename) {
   WriteFile(elf_mem_fd_, fd_to);
 
   close(fd_to);
-}
-
-void Program::InitializeElfSymbolData() {
-  if (elf_mem_fd_ == -1)
-    myfail("invalid elf_mem_fd_");
-
-  ssize_t nread;
-
-  // Read the ELF header.
-  Elf64_Ehdr ehdr;
-  off_t offset = lseek(elf_mem_fd_, 0, SEEK_SET);
-  if (offset != 0)
-    myfail("lseek to 0 failed");
-
-  nread = read(elf_mem_fd_, &ehdr, sizeof(ehdr));
-  if (nread != sizeof(ehdr))
-    myfail("read ehdr failed");
-
-  // printf("e_phoff : %ld, e_phentsize : %d, e_phnum : %d\n", ehdr.e_phoff,
-  //        ehdr.e_phentsize, ehdr.e_phnum);
-  // printf("e_shoff : %ld, e_shentsize : %d, e_shnum : %d\n", ehdr.e_shoff,
-  //        ehdr.e_shentsize, ehdr.e_shnum);
-
-  // Read section headers.
-  std::vector<Elf64_Shdr> shdrs(ehdr.e_shnum);
-  offset = lseek(elf_mem_fd_, ehdr.e_shoff, SEEK_SET);
-  if (offset != (off_t)ehdr.e_shoff)
-    myfail("lseek to ehdr.e_shoff failed");
-  nread = read(elf_mem_fd_, shdrs.data(), ehdr.e_shnum * ehdr.e_shentsize);
-  if (nread != ehdr.e_shnum * ehdr.e_shentsize)
-    myfail("read shdrs failed");
-
-  // for (auto &shdr : shdrs) {
-  //   printf("name: %d\n", shdr.sh_name);
-  // }
-
-  // Read the section header string table.
-#define SBUF_SIZE 512
-  char sbuf[SBUF_SIZE];
-  if (shdrs[ehdr.e_shstrndx].sh_size >= sizeof(sbuf))
-    myfail("sbuf too small for shstrtab");
-
-  offset = lseek(elf_mem_fd_, shdrs[ehdr.e_shstrndx].sh_offset, SEEK_SET);
-  if (offset != (off_t)shdrs[ehdr.e_shstrndx].sh_offset)
-    myfail("lseek to shdrs[ehdr.e_shstrndx].sh_offset failed");
-
-  nread = read(elf_mem_fd_, sbuf, shdrs[ehdr.e_shstrndx].sh_size);
-  if (nread != (off_t)shdrs[ehdr.e_shstrndx].sh_size)
-    myfail("section header string table read failed");
-
-  std::unordered_map<std::string, int> name_to_shdrs_index;
-  for (int i = 0; i < (int)shdrs.size(); ++i) {
-    std::string str(&sbuf[shdrs[i].sh_name]);
-    name_to_shdrs_index[str] = i;
-    // printf("%s: %d\n", str.c_str(), i);
-  }
-
-  // Read the symbol table.
-  if (name_to_shdrs_index.count(".symtab") < 1)
-    myfail(".symtab not found");
-  int symtab_index = name_to_shdrs_index[".symtab"];
-
-  if (shdrs[symtab_index].sh_size % sizeof(Elf64_Sym) != 0)
-    myfail("symtab size misunderstood");
-
-  int symtab_num = shdrs[symtab_index].sh_size / sizeof(Elf64_Sym);
-  std::vector<Elf64_Sym> syms(symtab_num);
-
-  offset = lseek(elf_mem_fd_, shdrs[symtab_index].sh_offset, SEEK_SET);
-  if (offset != (off_t)shdrs[symtab_index].sh_offset)
-    myfail("lseek to shdrs[symtab_index].sh_offset failed");
-
-  nread = read(elf_mem_fd_, syms.data(), shdrs[symtab_index].sh_size);
-  if (nread != (ssize_t)shdrs[symtab_index].sh_size)
-    myfail("read symtab failed");
-
-  // for (auto sym : syms) {
-  //   printf("name: %d\n", sym.st_name);
-  // }
-
-  // Read the symbol table string table.
-  if (name_to_shdrs_index.count(".strtab") < 1)
-    myfail(".strtab not found");
-  int strtab_index = name_to_shdrs_index[".strtab"];
-
-  if (shdrs[strtab_index].sh_size >= sizeof(sbuf))
-    myfail("sbuf too small for strtab");
-
-  offset = lseek(elf_mem_fd_, shdrs[strtab_index].sh_offset, SEEK_SET);
-  if (offset != (off_t)shdrs[strtab_index].sh_offset)
-    myfail("lseek to shdrs[ehdr.e_shstrndx].sh_offset failed");
-
-  nread = read(elf_mem_fd_, sbuf, shdrs[strtab_index].sh_size);
-  if (nread != (ssize_t)shdrs[strtab_index].sh_size)
-    myfail("symbol table string table read failed");
-
-  std::unordered_map<std::string, int> name_to_syms_index;
-  for (int i = 0; i < (int)syms.size(); ++i) {
-    std::string str(&sbuf[syms[i].st_name]);
-    name_to_syms_index[str] = i;
-    // printf("%s: %d\n", str.c_str(), i);
-  }
-
-  if (name_to_shdrs_index.count(".text") < 1)
-    myfail("section header .text not found");
-  int text_index = name_to_shdrs_index[".text"];
-
-  if (name_to_syms_index.count("main") < 1)
-    myfail("symbol main not found");
-  int main_index = name_to_syms_index["main"];
-
-  symbol_data_.main_offset_in_text_ =
-      syms[main_index].st_value - shdrs[text_index].sh_addr;
-  // NOTE: Risk of underflow for an unsigned variable? (Same below for inputs.)
-  symbol_data_.main_offset_in_elf_ =
-      syms[main_index].st_value -
-      (shdrs[text_index].sh_addr - shdrs[text_index].sh_offset);
-  symbol_data_.main_st_size_ = syms[main_index].st_size;
-
-  if (name_to_shdrs_index.count(".data") < 1)
-    myfail("section header .data not found");
-  int data_index = name_to_shdrs_index[".data"];
-
-  if (name_to_syms_index.count("inputs") < 1)
-    myfail("symbol inputs not found");
-  int inputs_index = name_to_syms_index["inputs"];
-
-  symbol_data_.inputs_offset_in_elf_ =
-      syms[inputs_index].st_value -
-      (shdrs[data_index].sh_addr - shdrs[data_index].sh_offset);
-  symbol_data_.inputs_st_size_ = syms[inputs_index].st_size;
-
-  if (name_to_syms_index.count("data_start") < 1)
-    myfail("symbol data_start not found");
-  int data_start_index = name_to_syms_index["data_start"];
-
-  if (name_to_syms_index.count("results") < 1)
-    myfail("symbol results not found");
-  int results_index = name_to_syms_index["results"];
-  symbol_data_.results_offset_in_data_ =
-      syms[results_index].st_value - syms[data_start_index].st_value;
-  symbol_data_.results_st_size_ = syms[results_index].st_size;
 }
 
 int Program::Execute(int max_ptrace_stops) {
