@@ -31,8 +31,17 @@ TEST(ProgramTest, CreateExecuteSimpleSmall) {
   EXPECT_TRUE(program->last_results().empty())
       << "last_results not empty before first Execute";
 
+  std::vector<char> elf_code_before_execute = program->GetElfCode();
+
   // Execute the elf, should be terminated when 'attempting' exit.
   int ptrace_stops_count_default = program->Execute();
+  EXPECT_EQ(ptrace_stops_count_default, 3)
+      << "'Default' Execute should observe exactly 3 ptrace stops: the "
+         "post-execveat SIGTRAP, the breakpoint SIGTRAP at main, and the "
+         "terminating stop from the code in main (#1)\nIf the elf process was "
+         "instead killed by signal 31 (SIGSYS), may want to add the offending "
+         "syscall to allowed seccomp rules in program.cc if this syscall was "
+         "newly added to elfs by a compiler/linker.";
   EXPECT_EQ(program->last_syscall(), 231)
       << "Last syscall should be exit for 'default' Execute (#1)\nMay want to "
          "add this syscall to allowed seccomp rules in program.cc if this "
@@ -45,33 +54,40 @@ TEST(ProgramTest, CreateExecuteSimpleSmall) {
       << "Last term signal should be 9 (SIGKILL) for 'default' Execute (#1)";
   EXPECT_EQ(program->last_stop_signal(), 5)
       << "Last stop signal should be 5 (SIGTRAP) for 'default' Execute (#1)";
-  // main() in //elfs:simple_small executes therefore the value of results[0] is
-  // changed to 20.
+  // main() executes therefore the value of results[0] is changed to 20.
   EXPECT_EQ(program->last_results(), changed_results)
       << "Unexpected last results after a 'default' Execute (#1)";
+  // The int3 breakpoint is written into (and removed from) the traced
+  // process's memory only; the ELF image itself must remain untouched.
+  EXPECT_EQ(program->GetElfCode(), elf_code_before_execute)
+      << "Execute should not alter the ELF's evolvable code (#1)";
 
-  // Terminate the elf process before entering main (small max_ptrace_stops
-  // passed to Execute).
-  EXPECT_EQ(program->Execute(5), 5)
-      << "observed ptrace stops different from max (#2)";
+  // Terminate the elf process at the breakpoint at main (before any code in
+  // main executes).
+  EXPECT_EQ(program->Execute(viaevo::Program::ExecuteMode::kStopAtMainEntry), 2)
+      << "'Stop at main' Execute should observe exactly 2 ptrace stops (#2)";
   EXPECT_NE(program->last_syscall(), 231)
-      << "last_syscall should not be exit for 'short' Execute (#2)";
-  EXPECT_NE(program->last_rip_offset(), -1)
-      << "Last rip offset should not be -1 for 'short' Execute (#2)";
+      << "last_syscall should not be exit for 'stop at main' Execute (#2)";
+  EXPECT_EQ(program->last_rip_offset(), 0)
+      << "Last rip offset should be 0 (main entry) for 'stop at main' Execute "
+         "(#2)";
   EXPECT_EQ(program->last_exit_status(), -9999)
-      << "Last exit status should be invalid for 'short' Execute (#2)";
+      << "Last exit status should be invalid for 'stop at main' Execute (#2)";
   EXPECT_EQ(program->last_term_signal(), 9)
-      << "Last term signal should be 9 (SIGKILL) for 'short' Execute (#2)";
+      << "Last term signal should be 9 (SIGKILL) for 'stop at main' Execute "
+         "(#2)";
   EXPECT_EQ(program->last_stop_signal(), 5)
-      << "Last stop signal should be 5 (SIGTRAP) for 'short' Execute (#2)";
-  // main() in //elfs:simple_small does not execute therefore the value of
-  // results[0] remains 10.
+      << "Last stop signal should be 5 (SIGTRAP) for 'stop at main' Execute "
+         "(#2)";
+  // main() does not execute therefore the results hold the ELF's initialized
+  // data.
   EXPECT_EQ(program->last_results(), default_results)
-      << "Unexpected last results after a 'short' Execute (#2)";
+      << "Unexpected last results after a 'stop at main' Execute (#2)";
 
-  // Run the elf to completion (large max_ptrace_stops passed to Execute).
-  int ptrace_stops_count_full = program->Execute(999'999);
-  EXPECT_GT(ptrace_stops_count_full, 0)
+  // Run the elf to completion (no breakpoint, syscalls traced throughout).
+  int ptrace_stops_count_full =
+      program->Execute(viaevo::Program::ExecuteMode::kRunToCompletion);
+  EXPECT_GT(ptrace_stops_count_full, 3)
       << "Too few ptrace stops for 'full' Execute (#3)";
   EXPECT_EQ(program->last_syscall(), 231)
       << "Last syscall should be exit for 'full' Execute (#3)\nMay want to "
@@ -85,10 +101,6 @@ TEST(ProgramTest, CreateExecuteSimpleSmall) {
       << "Last stop signal should be 5 (SIGTRAP) for 'full' Execute (#3)";
   EXPECT_TRUE(program->last_results().empty())
       << "Last results should be empty after 'full' Execute (#3)";
-
-  EXPECT_EQ(ptrace_stops_count_full, ptrace_stops_count_default)
-      << "'Full' Execute should have the same amount of ptrace stops compared "
-         "to 'default' Execute.";
 }
 
 TEST(ProgramTest, CreateExecuteSimpleMedium) {
@@ -113,8 +125,17 @@ TEST(ProgramTest, CreateExecuteSimpleMedium) {
   EXPECT_TRUE(program->last_results().empty())
       << "last_results not empty before first Execute";
 
+  std::vector<char> elf_code_before_execute = program->GetElfCode();
+
   // Execute the elf, should be terminated when 'attempting' exit.
   int ptrace_stops_count_default = program->Execute();
+  EXPECT_EQ(ptrace_stops_count_default, 3)
+      << "'Default' Execute should observe exactly 3 ptrace stops: the "
+         "post-execveat SIGTRAP, the breakpoint SIGTRAP at main, and the "
+         "terminating stop from the code in main (#1)\nIf the elf process was "
+         "instead killed by signal 31 (SIGSYS), may want to add the offending "
+         "syscall to allowed seccomp rules in program.cc if this syscall was "
+         "newly added to elfs by a compiler/linker.";
   EXPECT_EQ(program->last_syscall(), 231)
       << "Last syscall should be exit for 'default' Execute (#1)\nMay want to "
          "add this syscall to allowed seccomp rules in program.cc if this "
@@ -127,33 +148,40 @@ TEST(ProgramTest, CreateExecuteSimpleMedium) {
       << "Last term signal should be 9 (SIGKILL) for 'default' Execute (#1)";
   EXPECT_EQ(program->last_stop_signal(), 5)
       << "Last stop signal should be 5 (SIGTRAP) for 'default' Execute (#1)";
-  // main() in //elfs:simple_small executes therefore the value of results[0] is
-  // changed to 20.
+  // main() executes therefore the value of results[0] is changed to 20.
   EXPECT_EQ(program->last_results(), changed_results)
       << "Unexpected last results after a 'default' Execute (#1)";
+  // The int3 breakpoint is written into (and removed from) the traced
+  // process's memory only; the ELF image itself must remain untouched.
+  EXPECT_EQ(program->GetElfCode(), elf_code_before_execute)
+      << "Execute should not alter the ELF's evolvable code (#1)";
 
-  // Terminate the elf process before entering main (small max_ptrace_stops
-  // passed to Execute).
-  EXPECT_EQ(program->Execute(5), 5)
-      << "observed ptrace stops different from max (#2)";
+  // Terminate the elf process at the breakpoint at main (before any code in
+  // main executes).
+  EXPECT_EQ(program->Execute(viaevo::Program::ExecuteMode::kStopAtMainEntry), 2)
+      << "'Stop at main' Execute should observe exactly 2 ptrace stops (#2)";
   EXPECT_NE(program->last_syscall(), 231)
-      << "last_syscall should not be exit for 'short' Execute (#2)";
-  EXPECT_NE(program->last_rip_offset(), -1)
-      << "Last rip offset should not be -1 for 'short' Execute (#2)";
+      << "last_syscall should not be exit for 'stop at main' Execute (#2)";
+  EXPECT_EQ(program->last_rip_offset(), 0)
+      << "Last rip offset should be 0 (main entry) for 'stop at main' Execute "
+         "(#2)";
   EXPECT_EQ(program->last_exit_status(), -9999)
-      << "Last exit status should be invalid for 'short' Execute (#2)";
+      << "Last exit status should be invalid for 'stop at main' Execute (#2)";
   EXPECT_EQ(program->last_term_signal(), 9)
-      << "Last term signal should be 9 (SIGKILL) for 'short' Execute (#2)";
+      << "Last term signal should be 9 (SIGKILL) for 'stop at main' Execute "
+         "(#2)";
   EXPECT_EQ(program->last_stop_signal(), 5)
-      << "Last stop signal should be 5 (SIGTRAP) for 'short' Execute (#2)";
-  // main() in //elfs:simple_small does not execute therefore the value of
-  // results[0] remains 10.
+      << "Last stop signal should be 5 (SIGTRAP) for 'stop at main' Execute "
+         "(#2)";
+  // main() does not execute therefore the results hold the ELF's initialized
+  // data.
   EXPECT_EQ(program->last_results(), default_results)
-      << "Unexpected last results after a 'short' Execute (#2)";
+      << "Unexpected last results after a 'stop at main' Execute (#2)";
 
-  // Run the elf to completion (large max_ptrace_stops passed to Execute).
-  int ptrace_stops_count_full = program->Execute(999'999);
-  EXPECT_GT(ptrace_stops_count_full, 0)
+  // Run the elf to completion (no breakpoint, syscalls traced throughout).
+  int ptrace_stops_count_full =
+      program->Execute(viaevo::Program::ExecuteMode::kRunToCompletion);
+  EXPECT_GT(ptrace_stops_count_full, 3)
       << "Too few ptrace stops for 'full' Execute (#3)";
   EXPECT_EQ(program->last_syscall(), 231)
       << "Last syscall should be exit for 'full' Execute (#3)\nMay want to "
@@ -167,10 +195,6 @@ TEST(ProgramTest, CreateExecuteSimpleMedium) {
       << "Last stop signal should be 5 (SIGTRAP) for 'full' Execute (#3)";
   EXPECT_TRUE(program->last_results().empty())
       << "Last results should be empty after 'full' Execute (#3)";
-
-  EXPECT_EQ(ptrace_stops_count_full, ptrace_stops_count_default)
-      << "'Full' Execute should have the same amount of ptrace stops compared "
-         "to 'default' Execute.";
 }
 
 TEST(ProgramTest, CreateExecuteIntermediateSmall) {
@@ -195,8 +219,17 @@ TEST(ProgramTest, CreateExecuteIntermediateSmall) {
   EXPECT_TRUE(program->last_results().empty())
       << "last_results not empty before first Execute";
 
+  std::vector<char> elf_code_before_execute = program->GetElfCode();
+
   // Execute the elf, should be terminated when 'attempting' exit.
   int ptrace_stops_count_default = program->Execute();
+  EXPECT_EQ(ptrace_stops_count_default, 3)
+      << "'Default' Execute should observe exactly 3 ptrace stops: the "
+         "post-execveat SIGTRAP, the breakpoint SIGTRAP at main, and the "
+         "terminating stop from the code in main (#1)\nIf the elf process was "
+         "instead killed by signal 31 (SIGSYS), may want to add the offending "
+         "syscall to allowed seccomp rules in program.cc if this syscall was "
+         "newly added to elfs by a compiler/linker.";
   EXPECT_EQ(program->last_syscall(), 231)
       << "Last syscall should be exit for 'default' Execute (#1)\nMay want to "
          "add this syscall to allowed seccomp rules in program.cc if this "
@@ -209,33 +242,40 @@ TEST(ProgramTest, CreateExecuteIntermediateSmall) {
       << "Last term signal should be 9 (SIGKILL) for 'default' Execute (#1)";
   EXPECT_EQ(program->last_stop_signal(), 5)
       << "Last stop signal should be 5 (SIGTRAP) for 'default' Execute (#1)";
-  // main() in //elfs:simple_small executes therefore the value of results[0] is
-  // changed to 20.
+  // main() executes therefore the value of results[0] is changed to 20.
   EXPECT_EQ(program->last_results(), changed_results)
       << "Unexpected last results after a 'default' Execute (#1)";
+  // The int3 breakpoint is written into (and removed from) the traced
+  // process's memory only; the ELF image itself must remain untouched.
+  EXPECT_EQ(program->GetElfCode(), elf_code_before_execute)
+      << "Execute should not alter the ELF's evolvable code (#1)";
 
-  // Terminate the elf process before entering main (small max_ptrace_stops
-  // passed to Execute).
-  EXPECT_EQ(program->Execute(5), 5)
-      << "observed ptrace stops different from max (#2)";
+  // Terminate the elf process at the breakpoint at main (before any code in
+  // main executes).
+  EXPECT_EQ(program->Execute(viaevo::Program::ExecuteMode::kStopAtMainEntry), 2)
+      << "'Stop at main' Execute should observe exactly 2 ptrace stops (#2)";
   EXPECT_NE(program->last_syscall(), 231)
-      << "last_syscall should not be exit for 'short' Execute (#2)";
-  EXPECT_NE(program->last_rip_offset(), -1)
-      << "Last rip offset should not be -1 for 'short' Execute (#2)";
+      << "last_syscall should not be exit for 'stop at main' Execute (#2)";
+  EXPECT_EQ(program->last_rip_offset(), 0)
+      << "Last rip offset should be 0 (main entry) for 'stop at main' Execute "
+         "(#2)";
   EXPECT_EQ(program->last_exit_status(), -9999)
-      << "Last exit status should be invalid for 'short' Execute (#2)";
+      << "Last exit status should be invalid for 'stop at main' Execute (#2)";
   EXPECT_EQ(program->last_term_signal(), 9)
-      << "Last term signal should be 9 (SIGKILL) for 'short' Execute (#2)";
+      << "Last term signal should be 9 (SIGKILL) for 'stop at main' Execute "
+         "(#2)";
   EXPECT_EQ(program->last_stop_signal(), 5)
-      << "Last stop signal should be 5 (SIGTRAP) for 'short' Execute (#2)";
-  // main() in //elfs:simple_small does not execute therefore the value of
-  // results[0] remains 10.
+      << "Last stop signal should be 5 (SIGTRAP) for 'stop at main' Execute "
+         "(#2)";
+  // main() does not execute therefore the results hold the ELF's initialized
+  // data.
   EXPECT_EQ(program->last_results(), default_results)
-      << "Unexpected last results after a 'short' Execute (#2)";
+      << "Unexpected last results after a 'stop at main' Execute (#2)";
 
-  // Run the elf to completion (large max_ptrace_stops passed to Execute).
-  int ptrace_stops_count_full = program->Execute(999'999);
-  EXPECT_GT(ptrace_stops_count_full, 0)
+  // Run the elf to completion (no breakpoint, syscalls traced throughout).
+  int ptrace_stops_count_full =
+      program->Execute(viaevo::Program::ExecuteMode::kRunToCompletion);
+  EXPECT_GT(ptrace_stops_count_full, 3)
       << "Too few ptrace stops for 'full' Execute (#3)";
   EXPECT_EQ(program->last_syscall(), 231)
       << "Last syscall should be exit for 'full' Execute (#3)\nMay want to "
@@ -249,10 +289,6 @@ TEST(ProgramTest, CreateExecuteIntermediateSmall) {
       << "Last stop signal should be 5 (SIGTRAP) for 'full' Execute (#3)";
   EXPECT_TRUE(program->last_results().empty())
       << "Last results should be empty after 'full' Execute (#3)";
-
-  EXPECT_EQ(ptrace_stops_count_full, ptrace_stops_count_default)
-      << "'Full' Execute should have the same amount of ptrace stops compared "
-         "to 'default' Execute.";
 }
 
 TEST(ProgramTest, CreateExecuteIntermediateMedium) {
@@ -278,8 +314,17 @@ TEST(ProgramTest, CreateExecuteIntermediateMedium) {
   EXPECT_TRUE(program->last_results().empty())
       << "last_results not empty before first Execute";
 
+  std::vector<char> elf_code_before_execute = program->GetElfCode();
+
   // Execute the elf, should be terminated when 'attempting' exit.
   int ptrace_stops_count_default = program->Execute();
+  EXPECT_EQ(ptrace_stops_count_default, 3)
+      << "'Default' Execute should observe exactly 3 ptrace stops: the "
+         "post-execveat SIGTRAP, the breakpoint SIGTRAP at main, and the "
+         "terminating stop from the code in main (#1)\nIf the elf process was "
+         "instead killed by signal 31 (SIGSYS), may want to add the offending "
+         "syscall to allowed seccomp rules in program.cc if this syscall was "
+         "newly added to elfs by a compiler/linker.";
   EXPECT_EQ(program->last_syscall(), 231)
       << "Last syscall should be exit for 'default' Execute (#1)\nMay want to "
          "add this syscall to allowed seccomp rules in program.cc if this "
@@ -292,33 +337,40 @@ TEST(ProgramTest, CreateExecuteIntermediateMedium) {
       << "Last term signal should be 9 (SIGKILL) for 'default' Execute (#1)";
   EXPECT_EQ(program->last_stop_signal(), 5)
       << "Last stop signal should be 5 (SIGTRAP) for 'default' Execute (#1)";
-  // main() in //elfs:simple_small executes therefore the value of results[0] is
-  // changed to 20.
+  // main() executes therefore the value of results[0] is changed to 20.
   EXPECT_EQ(program->last_results(), changed_results)
       << "Unexpected last results after a 'default' Execute (#1)";
+  // The int3 breakpoint is written into (and removed from) the traced
+  // process's memory only; the ELF image itself must remain untouched.
+  EXPECT_EQ(program->GetElfCode(), elf_code_before_execute)
+      << "Execute should not alter the ELF's evolvable code (#1)";
 
-  // Terminate the elf process before entering main (small max_ptrace_stops
-  // passed to Execute).
-  EXPECT_EQ(program->Execute(5), 5)
-      << "observed ptrace stops different from max (#2)";
+  // Terminate the elf process at the breakpoint at main (before any code in
+  // main executes).
+  EXPECT_EQ(program->Execute(viaevo::Program::ExecuteMode::kStopAtMainEntry), 2)
+      << "'Stop at main' Execute should observe exactly 2 ptrace stops (#2)";
   EXPECT_NE(program->last_syscall(), 231)
-      << "last_syscall should not be exit for 'short' Execute (#2)";
-  EXPECT_NE(program->last_rip_offset(), -1)
-      << "Last rip offset should not be -1 for 'short' Execute (#2)";
+      << "last_syscall should not be exit for 'stop at main' Execute (#2)";
+  EXPECT_EQ(program->last_rip_offset(), 0)
+      << "Last rip offset should be 0 (main entry) for 'stop at main' Execute "
+         "(#2)";
   EXPECT_EQ(program->last_exit_status(), -9999)
-      << "Last exit status should be invalid for 'short' Execute (#2)";
+      << "Last exit status should be invalid for 'stop at main' Execute (#2)";
   EXPECT_EQ(program->last_term_signal(), 9)
-      << "Last term signal should be 9 (SIGKILL) for 'short' Execute (#2)";
+      << "Last term signal should be 9 (SIGKILL) for 'stop at main' Execute "
+         "(#2)";
   EXPECT_EQ(program->last_stop_signal(), 5)
-      << "Last stop signal should be 5 (SIGTRAP) for 'short' Execute (#2)";
-  // main() in //elfs:simple_small does not execute therefore the value of
-  // results[0] remains 10.
+      << "Last stop signal should be 5 (SIGTRAP) for 'stop at main' Execute "
+         "(#2)";
+  // main() does not execute therefore the results hold the ELF's initialized
+  // data.
   EXPECT_EQ(program->last_results(), default_results)
-      << "Unexpected last results after a 'short' Execute (#2)";
+      << "Unexpected last results after a 'stop at main' Execute (#2)";
 
-  // Run the elf to completion (large max_ptrace_stops passed to Execute).
-  int ptrace_stops_count_full = program->Execute(999'999);
-  EXPECT_GT(ptrace_stops_count_full, 0)
+  // Run the elf to completion (no breakpoint, syscalls traced throughout).
+  int ptrace_stops_count_full =
+      program->Execute(viaevo::Program::ExecuteMode::kRunToCompletion);
+  EXPECT_GT(ptrace_stops_count_full, 3)
       << "Too few ptrace stops for 'full' Execute (#3)";
   EXPECT_EQ(program->last_syscall(), 231)
       << "Last syscall should be exit for 'full' Execute (#3)\nMay want to "
@@ -332,10 +384,6 @@ TEST(ProgramTest, CreateExecuteIntermediateMedium) {
       << "Last stop signal should be 5 (SIGTRAP) for 'full' Execute (#3)";
   EXPECT_TRUE(program->last_results().empty())
       << "Last results should be empty after 'full' Execute (#3)";
-
-  EXPECT_EQ(ptrace_stops_count_full, ptrace_stops_count_default)
-      << "'Full' Execute should have the same amount of ptrace stops compared "
-         "to 'default' Execute.";
 }
 
 TEST(ProgramTest, GetSetElfCodeSimpleSmall) {
@@ -506,6 +554,9 @@ TEST(ProgramTest, SetElfCodeToAllNopsSimpleSmall) {
   EXPECT_EQ(program->last_results(), default_results)
       << "Unexpected last results after a 'default' Execute (#2)";
 
+  EXPECT_EQ(ptrace_stops_count_default, 3)
+      << "'Default' Execute should observe exactly 3 ptrace stops (exec trap, "
+         "breakpoint at main, terminating stop).";
   EXPECT_EQ(ptrace_stops_count_default, ptrace_stops_count_all_nops)
       << "Default execute should have the same number of ptrace stops as "
          "execute after changing all instructions to nops.";

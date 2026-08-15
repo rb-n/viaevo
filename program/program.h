@@ -10,7 +10,6 @@
 #include <fcntl.h>
 
 #include <memory>
-#include <unordered_map>
 #include <vector>
 
 #include "elf_layout.h"
@@ -20,17 +19,38 @@ namespace viaevo {
 // Program reads ELFs and manages their modifications, execution and reading of
 // results.
 //
+// Execution places an int3 (0xCC) software breakpoint at the entry of main in
+// the traced ELF process, so "evolvable code reached" is detected exactly and
+// independently of how many system calls the loader/libc make before main.
+//
 // The class is not intended for subclassing (other than mock classes for unit
 // testing). Instances should be created via the factory method Create for ELFs
 // in //elfs.
 class Program {
 public:
+  // How Execute runs the ELF process:
+  // - kTerminateInEvolvedCode (default, used during evolution): run untraced
+  //   to an int3 breakpoint at main, remove the breakpoint, then terminate the
+  //   process at the first system call or signal originating from the
+  //   (evolved) code in main. Results are read from the process memory just
+  //   before termination.
+  // - kStopAtMainEntry: terminate the process at the breakpoint at main
+  //   instead; main never executes and the results read reflect the ELF's
+  //   initialized data.
+  // - kRunToCompletion: no breakpoint; trace system calls until the process
+  //   exits on its own. Intended for tests/diagnostics only - the code in main
+  //   runs unrestrained (still under seccomp and the timeout) and results are
+  //   not read.
+  enum class ExecuteMode {
+    kTerminateInEvolvedCode,
+    kStopAtMainEntry,
+    kRunToCompletion,
+  };
+
   // TODO: Allowing the default constructor to make it easier to subclass for
   // mocking in unit testing. May want to find a different approach.
   Program() {}
   Program(const char *filename);
-  Program(const char *filename, SymbolData symbol_data,
-          int expected_ptrace_stops);
 
   Program(const Program &) = delete;
   Program &operator=(const Program &) = delete;
@@ -42,11 +62,13 @@ public:
   // Factory method to create Program instances based on one of the //elfs.
   static std::shared_ptr<Program> Create(const std::string &filename);
 
-  // Execute the program and populate last_results_. At most max_ptrace_stops
-  // will be allowed for the elf process before the elf process is terminated.
-  // If max_ptrace_stops is -1, at most expected_ptrace_stops_ will be allowed.
-  // Returns the number of ptrace stops during the process lifetime.
-  int Execute(int max_ptrace_stops = -1);
+  // Execute the program according to mode (see ExecuteMode above) and populate
+  // last_* member variables (last_results_ is populated unless mode is
+  // kRunToCompletion). Returns the number of ptrace stops observed during the
+  // process lifetime; in kTerminateInEvolvedCode mode this is 3 for a
+  // well-behaved run: the post-execveat SIGTRAP, the breakpoint SIGTRAP at
+  // main, and the terminating stop from the evolved code.
+  int Execute(ExecuteMode mode = ExecuteMode::kTerminateInEvolvedCode);
 
   // Get and set the ELF's evolvable code (main).
   std::vector<char> GetElfCode() const;
@@ -72,7 +94,6 @@ public:
   int last_term_signal() const { return last_term_signal_; }
   int last_stop_signal() const { return last_stop_signal_; }
   const std::vector<int> &last_results() const { return last_results_; }
-  int expected_ptrace_stops() const { return expected_ptrace_stops_; }
 
 private:
   // Copies the ELF from filename to an in memory file referenced by the
@@ -83,20 +104,23 @@ private:
   // descriptor fd_to). Used by member functions SetupElfInMemory and SaveElf.
   void WriteFile(int fd_from, int fd_to);
 
-  // Monitors the separate ELF process via ptrace stops. Also populates
-  // last_results_. The value of max_ptrace_stops is passed from the Execute
-  // method and has the same meaning here as there. Returns the number of ptrace
-  // stops during the lifetime of the ELF process.
-  int MonitorElfProcess(pid_t elf_pid, int max_ptrace_stops);
+  // Monitors the separate ELF process via ptrace stops (breakpoint-driven, see
+  // the class comment and the State enum in the implementation). Also
+  // populates last_results_ (unless mode is kRunToCompletion). Returns the
+  // number of ptrace stops during the lifetime of the ELF process.
+  int MonitorElfProcess(pid_t elf_pid, ExecuteMode mode);
 
-  // Runs the ELF in a new process (created via fork prior to calling this
+  // Runs the ELF in a new process (created via vfork prior to calling this
   // function).
   void RunElfProcess();
 
-  // Reads last_results_ from the ELF process. Also updates last_rip_offset_ -
-  // as /proc/[elf_pid]/stat is parsed here and also provides codestart address.
+  // Reads last_results_ from the ELF process and updates last_rip_offset_.
+  // start_code and start_data are the process's runtime text and data segment
+  // start addresses (parsed from /proc/[elf_pid]/stat at the post-exec stop).
   void ReadLastResultsAndLastRipOffsetFromElfProcess(pid_t elf_pid,
-                                                     unsigned long long rip);
+                                                     unsigned long long rip,
+                                                     unsigned long start_code,
+                                                     unsigned long start_data);
 
   // Clears last_* member variables.
   void ClearLastState();
@@ -130,22 +154,8 @@ protected:
   std::vector<int> last_results_;
 
   // ELF symbol table values and sizes for main, inputs and results (see
-  // elf_layout.h).
+  // elf_layout.h). Resolved from the in-memory ELF on construction.
   SymbolData symbol_data_;
-
-  // Map elf name to its symbol data to "memoize" these and avoid computing
-  // these for each instance of the same elf. Symbol data fields are initialized
-  // to -1 and set the correct value during the first pass of the factory method
-  // for each ELF. Then the values from the map are used for subsequent
-  // instances of the elf.
-  static std::unordered_map<std::string, SymbolData> symbol_data_map_;
-
-  // Number of ptrace stops (e.g. syscalls) prior to executing main().
-  int expected_ptrace_stops_ = -1;
-
-  // Memoize expected ptrace stops for different elfs to avoid computing them
-  // for every instance.
-  static std::unordered_map<std::string, int> expected_ptrace_stops_map_;
 };
 
 } // namespace viaevo

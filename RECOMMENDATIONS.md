@@ -205,12 +205,14 @@ class with a public default ctor.
 
 ### 2.3 Static mutable global state
 
-`Program::symbol_data_map_` and `expected_ptrace_stops_map_`
-(`program.h:149-156`) are static `unordered_map`s populated lazily in
-`Create`. Combined with parallel execution this is a data race the first time a
-given ELF is seen (the populating `Create` is presumably called single-threaded
-today, but nothing enforces it). Make the cache an explicit object passed in, or
-guard it, or compute symbol data eagerly once at startup.
+**[DONE]** `Program::symbol_data_map_` and `expected_ptrace_stops_map_` were
+static `unordered_map`s populated lazily in `Create` — a latent data race the
+first time a given ELF was seen. Both are gone with the `int3` switch (§3):
+the stops calibration no longer exists, and each `Program` now resolves its
+own `SymbolData` from its in-memory ELF at construction (a one-time parse per
+instance, negligible at startup). The remaining static in `program.cc` is the
+seccomp BPF cache in `GetSeccompProgram`, which is immutable after thread-safe
+first initialization.
 
 ### 2.4 Const-correctness and small idioms
 
@@ -263,6 +265,21 @@ etc.) behind the interface so `main.cc` can select among them.
 ---
 
 ## 3. Detecting evolvable code via SIGUSR vs. counting syscalls
+
+**[DONE — option 1 implemented]** `Program` now detects "evolvable code
+reached" via an `int3` breakpoint: at the post-`execveat` SIGTRAP the tracer
+reads the process's `start_code` from `/proc/[pid]/stat`, pokes `0xCC` at
+`main`'s runtime address (`PTRACE_POKETEXT`), and continues *untraced* to the
+breakpoint; there it restores the original byte, rewinds `rip`, and switches to
+`PTRACE_SYSCALL` so the first syscall/signal from evolved code still terminates
+the process (before any stopped syscall executes). A well-behaved run is
+exactly 3 ptrace stops (down from ~44 syscall-stepped stops). The
+`expected_ptrace_stops_` calibration run, both static memoization maps (§2.3),
+and the per-ELF toolchain coupling are gone; `Execute` takes an `ExecuteMode`
+(`kTerminateInEvolvedCode` / `kStopAtMainEntry` / `kRunToCompletion`) instead
+of a stop budget. The breakpoint lives only in the traced process's memory —
+the ELF image and evolvable code are untouched (regression-tested). Original
+discussion below.
 
 You asked specifically whether to raise a signal (e.g. `raise(SIGUSR1)`) at the
 start of `main` to mark "evolvable code reached", instead of counting the
@@ -614,15 +631,12 @@ Today the entire population is cloned from a single `elf_filename`
   individuals from one task can bootstrap another (a form of transfer /
   island-model seeding — see §6 on Cartesian GP neutrality and island models).
 
-**Why this pairs with `int3` (§3):** mixing *different* templates in one
-population is unsafe today because each ELF carries its own
-`expected_ptrace_stops_` calibration
-(`@/home/baran/prjs/viaevo/program/program.h:157`, memoized per-filename at
-`program.h:161`, computed once in `Create`,
-`@/home/baran/prjs/viaevo/program/program.cc:69`). The pre-`main` syscall count
-differs per template/toolchain, but the evolver assumes a single value. An
-`int3` breakpoint at `main` makes "evolvable code reached" independent of
-pre-`main` syscalls, so heterogeneous seeds can coexist. **Prerequisite for safe
+**Why this pairs with `int3` (§3) — now unblocked:** mixing *different*
+templates in one population used to be unsafe because each ELF carried its own
+`expected_ptrace_stops_` calibration while the evolver assumed a single value.
+With the `int3` breakpoint implemented (§3), "evolvable code reached" is
+independent of pre-`main` syscalls and each `Program` self-resolves its symbol
+data, so heterogeneous seeds can coexist. **Remaining prerequisite for safe
 mixing:** all seeds must share the evolvable-region contract (same `main` size,
 and matching `inputs`/`results` layout); validate this at load and
 reject/pad mismatches explicitly rather than silently.
@@ -661,8 +675,10 @@ A suggested order that front-loads correctness and high-leverage research:
 
 1. **Fix the §1 bugs** (Random UB, signed rip offset, magic numbers, MNIST I/O
    caching). Low effort, removes latent failures.
-2. **Switch evolvable-code detection to an `int3` breakpoint at `main`** (§3),
-   deleting the `expected_ptrace_stops_` calibration. Big robustness win.
+2. **[DONE]** **Switch evolvable-code detection to an `int3` breakpoint at
+   `main`** (§3), deleting the `expected_ptrace_stops_` calibration. Big
+   robustness win (and a throughput win: 3 ptrace stops per execution instead
+   of ~44).
 3. **Make evaluation a worker-process pool** and give each worker its own RNG
    stream (§8). Fixes fork-in-threads, speeds everything up, enables
    reproducibility.

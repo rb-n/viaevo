@@ -28,7 +28,6 @@
 
 #include <fstream>
 #include <string>
-#include <unordered_map>
 
 namespace viaevo {
 
@@ -129,18 +128,67 @@ const struct sock_fprog &GetSeccompProgram() {
   return prog;
 }
 
+// Parses the runtime start addresses of the text (start_code) and data
+// (start_data) segments of the process from /proc/[pid]/stat. Valid once the
+// process completed exec (called at the post-execveat ptrace stop).
+void ReadProcStatAddresses(pid_t pid, unsigned long *start_code,
+                           unsigned long *start_data) {
+  std::string proc_file_name =
+      std::string("/proc/") + std::to_string(pid) + std::string("/stat");
+
+  int proc_pid;
+  std::string proc_comm;
+  char proc_state;
+  unsigned long dummy_ul;
+  unsigned long end_code, end_data, kstkeip;
+
+  std::ifstream ifs(proc_file_name);
+  ifs >> proc_pid >> proc_comm >> proc_state;
+  // Skip to start_code.
+  // NOTE: some of the fields are not unsigned, using the unsigned long dummy_ul
+  // variable may not be appropriate.
+  for (int i = 0; i < 22; ++i)
+    ifs >> dummy_ul;
+  ifs >> *start_code >> end_code;
+  for (int i = 0; i < 2; ++i)
+    ifs >> dummy_ul;
+  ifs >> kstkeip;
+  for (int i = 0; i < 14; ++i)
+    ifs >> dummy_ul;
+  ifs >> *start_data >> end_data;
+
+  if (!ifs)
+    myfail("parsing /proc/[pid]/stat failed");
+  if (*start_data > end_data)
+    myfail("start_data > end_data");
+}
+
+// Replaces the byte at addr in the traced (stopped) process's text with an
+// int3 (0xCC) breakpoint. Returns the original text word so the breakpoint can
+// be removed again via RemoveBreakpoint. PTRACE_POKETEXT is used (rather than
+// e.g. process_vm_writev) as it can write to the read-only text mapping.
+long InstallBreakpoint(pid_t pid, unsigned long long addr) {
+  errno = 0;
+  long original_word = ptrace(PTRACE_PEEKTEXT, pid, addr, 0);
+  if (original_word == -1 && errno != 0)
+    myfail("PTRACE_PEEKTEXT failed");
+  long patched_word = (original_word & ~0xFFL) | 0xCCL;
+  if (ptrace(PTRACE_POKETEXT, pid, addr, patched_word) == -1)
+    myfail("PTRACE_POKETEXT (install breakpoint) failed");
+  return original_word;
+}
+
+// Restores the original text word previously replaced by InstallBreakpoint.
+void RemoveBreakpoint(pid_t pid, unsigned long long addr, long original_word) {
+  if (ptrace(PTRACE_POKETEXT, pid, addr, original_word) == -1)
+    myfail("PTRACE_POKETEXT (remove breakpoint) failed");
+}
+
 } // namespace
 
-std::unordered_map<std::string, SymbolData> Program::symbol_data_map_;
-
-std::unordered_map<std::string, int> Program::expected_ptrace_stops_map_;
-
-Program::Program(const char *filename) { SetupElfInMemory(filename); }
-
-Program::Program(const char *filename, SymbolData symbol_data,
-                 int expected_ptrace_stops)
-    : symbol_data_(symbol_data), expected_ptrace_stops_(expected_ptrace_stops) {
+Program::Program(const char *filename) {
   SetupElfInMemory(filename);
+  symbol_data_ = ResolveElfSymbolData(elf_mem_fd_);
 }
 
 Program::~Program() {
@@ -153,20 +201,11 @@ bool Program::IsInitialized() const {
           symbol_data_.main_offset_in_elf_ != (Elf64_Addr)-1 &&
           symbol_data_.main_st_size_ != (uint64_t)-1 &&
           symbol_data_.results_offset_in_data_ != (Elf64_Addr)-1 &&
-          symbol_data_.results_st_size_ != (uint64_t)-1 &&
-          expected_ptrace_stops_ != -1);
+          symbol_data_.results_st_size_ != (uint64_t)-1);
 }
 
 std::shared_ptr<Program> Program::Create(const std::string &filename) {
-  if (symbol_data_map_.count(filename) == 0 ||
-      expected_ptrace_stops_map_.count(filename) == 0) {
-    Program p(filename.c_str());
-    p.symbol_data_ = ResolveElfSymbolData(p.elf_mem_fd_);
-    symbol_data_map_[filename] = p.symbol_data_;
-    expected_ptrace_stops_map_[filename] = p.Execute();
-  }
-  return std::make_shared<Program>(filename.c_str(), symbol_data_map_[filename],
-                                   expected_ptrace_stops_map_[filename]);
+  return std::make_shared<Program>(filename.c_str());
 }
 
 void Program::SetupElfInMemory(const char *filename) {
@@ -231,7 +270,7 @@ void Program::SaveElf(const char *filename) {
   close(fd_to);
 }
 
-int Program::Execute(int max_ptrace_stops) {
+int Program::Execute(ExecuteMode mode) {
   ClearLastState();
 
   // Compile the seccomp BPF program here in the parent (idempotent after the
@@ -255,7 +294,7 @@ int Program::Execute(int max_ptrace_stops) {
     myfail("vfork failed");
 
   if (pid > 0) {
-    return MonitorElfProcess(pid, max_ptrace_stops);
+    return MonitorElfProcess(pid, mode);
   } else {
     RunElfProcess();
   }
@@ -265,16 +304,40 @@ int Program::Execute(int max_ptrace_stops) {
   return -1; // Keep the linter happy.
 }
 
-int Program::MonitorElfProcess(pid_t elf_pid, int max_ptrace_stops) {
+int Program::MonitorElfProcess(pid_t elf_pid, ExecuteMode mode) {
   int status, ptrace_stops_count = 0;
   pid_t w;
   struct user_regs_struct regs;
 
-  if (max_ptrace_stops == -1)
-    max_ptrace_stops = expected_ptrace_stops_;
+  // Runtime addresses of the ELF process, established at the post-execveat
+  // stop.
+  unsigned long start_code = 0, start_data = 0;
+  unsigned long long main_addr = 0;
+  // Original text word at main's entry, replaced by the int3 breakpoint.
+  long original_main_word = 0;
 
-  // printf("In parent, child pid: %d\n", elf_pid);
-  // printf("In parent, parent pid: %d\n", getpid());
+  // Breakpoint-driven monitoring. The expected stop sequence in
+  // kTerminateInEvolvedCode mode is:
+  //   1. the SIGTRAP from the successful execveat (kAwaitingExecTrap) - the
+  //      breakpoint is installed at main and the process continues untraced
+  //      (startup syscalls are not stopped; they remain constrained by
+  //      seccomp),
+  //   2. the SIGTRAP from the int3 breakpoint at main (kAwaitingMainTrap) -
+  //      the breakpoint is removed, rip is rewound to main, and the process
+  //      continues with syscall tracing,
+  //   3. the first syscall-entry stop or signal originating from the (evolved)
+  //      code in main (kInEvolvedCode) - results are read from the process
+  //      memory and the process is killed (a stopped syscall never executes).
+  // This replaces the previous approach of counting an ELF-specific expected
+  // number of ptrace stops before main, which was brittle across
+  // compiler/libc versions and required a calibration run per ELF.
+  enum class State {
+    kAwaitingExecTrap,
+    kAwaitingMainTrap,
+    kInEvolvedCode,
+    kRunningToCompletion,
+    kTerminating,
+  } state = State::kAwaitingExecTrap;
 
   // From: https://linux.die.net/man/2/waitpid
   do {
@@ -308,12 +371,6 @@ int Program::MonitorElfProcess(pid_t elf_pid, int max_ptrace_stops) {
         // TODO: Find/fix the root cause, also check for resource leaks.
         printf("\n");
         perror("PTRACE_GETREGS failed (ignoring)");
-        // printf("last_stop_signal_: %d, last_term_signal_: %d,
-        // last_rip_offset: "
-        //        "%lld, last_exit_status_: %d, last_results_[0]: %d, "
-        //        "ptrace_stops_count: %d\n",
-        //        last_stop_signal_, last_term_signal_, last_rip_offset_,
-        //        last_exit_status_, last_results_[0], ptrace_stops_count);
         return ptrace_stops_count;
       }
 
@@ -321,33 +378,90 @@ int Program::MonitorElfProcess(pid_t elf_pid, int max_ptrace_stops) {
 
       // printf(", syscall: %lld\n", last_syscall_);
 
-      if (ptrace_stops_count >= max_ptrace_stops && max_ptrace_stops != -1) {
-        // We are done with the elf process after the initial expected
-        // syscalls. If this is happening at expected_ptrace_stops_, any
-        // additional syscall or signal is assumed to originate from the
-        // program's (evolved) code and ends the process. The (result) data are
-        // explored at this point. The child process is killed.
-        ReadLastResultsAndLastRipOffsetFromElfProcess(elf_pid, regs.rip);
-        if (kill(elf_pid, SIGKILL) == -1)
-          myfail("kill failed");
-      } else {
-        if (last_stop_signal_ != SIGTRAP) {
-          // E.g. SISGSEGV for and invalid program.
+      switch (state) {
+      case State::kAwaitingExecTrap:
+        if (last_stop_signal_ == SIGTRAP) {
+          // The ELF process completed execveat; its runtime memory layout is
+          // now in place.
+          ReadProcStatAddresses(elf_pid, &start_code, &start_data);
+          main_addr = start_code + symbol_data_.main_offset_in_text_;
+          if (mode == ExecuteMode::kRunToCompletion) {
+            state = State::kRunningToCompletion;
+            if (ptrace(PTRACE_SYSCALL, elf_pid, 0, 0) == -1)
+              myfail("PTRACE_SYSCALL failed");
+          } else {
+            original_main_word = InstallBreakpoint(elf_pid, main_addr);
+            state = State::kAwaitingMainTrap;
+            if (ptrace(PTRACE_CONT, elf_pid, 0, 0) == -1)
+              myfail("PTRACE_CONT failed");
+          }
+        } else {
+          // E.g. SIGALRM if the timeout expires before exec completes on a
+          // heavily loaded machine. Forward the signal (typically fatal).
           if (ptrace(PTRACE_CONT, elf_pid, 0, last_stop_signal_) == -1)
             myfail("PTRACE_CONT failed");
+        }
+        break;
 
+      case State::kAwaitingMainTrap:
+        if (last_stop_signal_ == SIGTRAP) {
+          // int3 leaves rip one byte past the trap instruction. Only the
+          // template's fixed startup code (loader/libc) ran so far, so no
+          // other SIGTRAP source is possible - verify rather than assume.
+          if (regs.rip != main_addr + 1)
+            myfail("unexpected SIGTRAP location before main");
+          RemoveBreakpoint(elf_pid, main_addr, original_main_word);
+          regs.rip = main_addr;
+          if (ptrace(PTRACE_SETREGS, elf_pid, 0, &regs) == -1)
+            myfail("PTRACE_SETREGS failed");
+          if (mode == ExecuteMode::kStopAtMainEntry) {
+            ReadLastResultsAndLastRipOffsetFromElfProcess(
+                elf_pid, regs.rip, start_code, start_data);
+            if (kill(elf_pid, SIGKILL) == -1)
+              myfail("kill failed");
+            state = State::kTerminating;
+          } else {
+            state = State::kInEvolvedCode;
+            if (ptrace(PTRACE_SYSCALL, elf_pid, 0, 0) == -1)
+              myfail("PTRACE_SYSCALL failed");
+          }
         } else {
-          // if (ptrace_stops_count == max_ptrace_stops - 1) {
-          //   --ptrace_stops_count;
-          //   ReadLastResultsFromElfProcess(elf_pid, regs.rip);
-          //   printf(" last_rip_offset_: %lld\n", last_rip_offset_);
-          //   if (ptrace(PTRACE_SINGLESTEP, elf_pid, NULL, NULL) == -1)
-          //     myfail("PTRACE_SINGLESTEP failed");
-          // } else {
+          // A signal before main (e.g. the SIGALRM timeout during startup);
+          // forward it (typically fatal).
+          if (ptrace(PTRACE_CONT, elf_pid, 0, last_stop_signal_) == -1)
+            myfail("PTRACE_CONT failed");
+        }
+        break;
+
+      case State::kInEvolvedCode:
+        // The first stop after main was entered: a syscall-entry stop (SIGTRAP
+        // from PTRACE_SYSCALL) or a signal (e.g. SIGSEGV/SIGILL for an invalid
+        // program, SIGALRM for a long running one). The (result) data are
+        // explored at this point and the process is killed - a stopped
+        // syscall-entry never executes the system call.
+        ReadLastResultsAndLastRipOffsetFromElfProcess(elf_pid, regs.rip,
+                                                      start_code, start_data);
+        if (kill(elf_pid, SIGKILL) == -1)
+          myfail("kill failed");
+        state = State::kTerminating;
+        break;
+
+      case State::kRunningToCompletion:
+        if (last_stop_signal_ == SIGTRAP) {
           if (ptrace(PTRACE_SYSCALL, elf_pid, 0, 0) == -1)
             myfail("PTRACE_SYSCALL failed");
-          // }
+        } else {
+          // E.g. SIGSEGV for an invalid program.
+          if (ptrace(PTRACE_CONT, elf_pid, 0, last_stop_signal_) == -1)
+            myfail("PTRACE_CONT failed");
         }
+        break;
+
+      case State::kTerminating:
+        // A stop racing the pending SIGKILL; nothing more to do here.
+        if (ptrace(PTRACE_CONT, elf_pid, 0, 0) == -1)
+          myfail("PTRACE_CONT failed");
+        break;
       }
     } else if (WIFCONTINUED(status)) {
       printf("continued\n");
@@ -414,46 +528,12 @@ void Program::RunElfProcess() {
 }
 
 void Program::ReadLastResultsAndLastRipOffsetFromElfProcess(
-    pid_t elf_pid, unsigned long long rip) {
-  std::string proc_file_name =
-      std::string("/proc/") + std::to_string(elf_pid) + std::string("/stat");
-
-  int proc_pid;
-  std::string proc_comm;
-  char proc_state;
-  unsigned long dummy_ul;
-  unsigned long start_code, end_code, kstkeip, start_data, end_data;
-
-  std::ifstream ifs(proc_file_name);
-  ifs >> proc_pid >> proc_comm >> proc_state;
-  // Skip to start_data.
-  // NOTE: some of the fields are not unsigned, using the unsigned long dummy_ul
-  // variable may not be appropriate.
-  for (int i = 0; i < 22; ++i)
-    ifs >> dummy_ul;
-  ifs >> start_code >> end_code;
-  for (int i = 0; i < 2; ++i)
-    ifs >> dummy_ul;
-  ifs >> kstkeip;
-  for (int i = 0; i < 14; ++i)
-    ifs >> dummy_ul;
-  ifs >> start_data >> end_data;
-
-  if (start_data > end_data)
-    myfail("start_data > end_data");
-
+    pid_t elf_pid, unsigned long long rip, unsigned long start_code,
+    unsigned long start_data) {
   // Compute in signed arithmetic so that an rip outside main (e.g. before main
   // starts) yields a negative offset rather than a huge unsigned value.
   last_rip_offset_ = (long long)rip - (long long)start_code -
                      (long long)symbol_data_.main_offset_in_text_;
-
-  // printf("pid: %d, comm: %s, state: %c\n", proc_pid, proc_comm.c_str(),
-  //        proc_state);
-  // printf("proc_comm: %s\n", proc_comm.c_str());
-  // printf("start_data: %ld, end_data %ld, diff: %ld\n", start_data, end_data,
-  //        end_data - start_data);
-  // printf("start_data: %lx, end_data %lx, diff: %lx\n", start_data, end_data,
-  //        end_data - start_data);
 
   struct iovec local[1];
   struct iovec remote[1];
