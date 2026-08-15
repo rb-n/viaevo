@@ -57,13 +57,122 @@ TEST(EvolverAdHocTest, SelectParents) {
 
   evolver.SelectParents(scores);
 
+  // SelectParents consumes the mocked values {7, 17} cyclically: first the
+  // tie-breaking Fisher-Yates shuffle of the index array {0,1,2,3,4}
+  // (i=4: 7%5=2 swaps 4<->2; i=3: 17%4=1 swaps 3<->1; i=2: 7%3=1 swaps 2<->1;
+  // i=1: 17%2=1 is a no-op) yielding {0,4,3,1,2}. The stable sort by score
+  // then gives {3,1,0,4,2}. Finally the single (phi = 1) random parent slot
+  // (index 2 = mu - phi) is filled by sampling from the remainder
+  // (7%3=1 swaps index 2 with index 3), yielding {3,1,4,0,2}.
   // First two programs are the ones with score 5 and 2.
   EXPECT_EQ(programs[0]->GetElfCode()[100], '\xA3');
   EXPECT_EQ(programs[1]->GetElfCode()[100], '\xA1');
-  // The remaining ones are stable sorted (all have a score of 0).
+  // The third parent slot is the randomly sampled (phi) parent.
+  EXPECT_EQ(programs[2]->GetElfCode()[100], '\xA4');
+  // The remaining programs are not parents.
+  EXPECT_EQ(programs[3]->GetElfCode()[100], '\xA0');
+  EXPECT_EQ(programs[4]->GetElfCode()[100], '\xA2');
+}
+
+TEST(EvolverAdHocTest, SelectParentsIdentityShuffle) {
+  // Mocked values {4, 3, 2, 1, 0} make both the tie-breaking shuffle
+  // (i: gen % (i + 1) == i for i = 4..1) and the phi sampling
+  // (gen % (n - i) == 0 at i = 2) identity operations, so the result is a pure
+  // stable sort by score - the pre-phi behavior.
+  viaevo::RandomMock gen({4, 3, 2, 1, 0});
+
+  viaevo::MutatorPointRandom mutator(gen);
+
+  std::vector<long long> scores{0, 2, 0, 5, 0};
+  viaevo::ScorerMarkedMock scorer({}, 20, {}, {0, 1, 2, 3, 9});
+
+  viaevo::EvolverAdHoc evolver("elfs/simple_small", 3, 1, 2, scorer, mutator,
+                               gen, 1, 1);
+
+  auto &programs = evolver.programs();
+
+  for (int i = 0; i < 5; ++i) {
+    std::vector<char> code = programs[i]->GetElfCode();
+    code[100] = 0xA0 + i;
+    programs[i]->SetElfCode(code);
+  }
+
+  evolver.SelectParents(scores);
+
+  // First two programs are the ones with score 5 and 2, the remaining ones are
+  // stable sorted (all have a score of 0).
+  EXPECT_EQ(programs[0]->GetElfCode()[100], '\xA3');
+  EXPECT_EQ(programs[1]->GetElfCode()[100], '\xA1');
   EXPECT_EQ(programs[2]->GetElfCode()[100], '\xA0');
   EXPECT_EQ(programs[3]->GetElfCode()[100], '\xA2');
   EXPECT_EQ(programs[4]->GetElfCode()[100], '\xA4');
+}
+
+TEST(EvolverAdHocTest, SelectParentsPhiPicksRandomParent) {
+  // Identity shuffle ({4, 3, 2, 1, ...} as above), then the phi slot samples
+  // the last-ranked program: at i = 2 (mu - phi), gen % (n - i) = 2 % 3 = 2
+  // swaps index 2 with index 4.
+  viaevo::RandomMock gen({4, 3, 2, 1, 2});
+
+  viaevo::MutatorPointRandom mutator(gen);
+
+  std::vector<long long> scores{0, 2, 0, 5, 0};
+  viaevo::ScorerMarkedMock scorer({}, 20, {}, {0, 1, 2, 3, 9});
+
+  viaevo::EvolverAdHoc evolver("elfs/simple_small", 3, 1, 2, scorer, mutator,
+                               gen, 1, 1);
+
+  auto &programs = evolver.programs();
+
+  for (int i = 0; i < 5; ++i) {
+    std::vector<char> code = programs[i]->GetElfCode();
+    code[100] = 0xA0 + i;
+    programs[i]->SetElfCode(code);
+  }
+
+  evolver.SelectParents(scores);
+
+  // Stable sort gives {3,1,0,2,4}; the phi slot then picks the zero-scoring
+  // program 4 as the random parent even though program 0 outranks it.
+  EXPECT_EQ(programs[0]->GetElfCode()[100], '\xA3');
+  EXPECT_EQ(programs[1]->GetElfCode()[100], '\xA1');
+  EXPECT_EQ(programs[2]->GetElfCode()[100], '\xA4');
+  EXPECT_EQ(programs[3]->GetElfCode()[100], '\xA2');
+  EXPECT_EQ(programs[4]->GetElfCode()[100], '\xA0');
+}
+
+TEST(EvolverAdHocTest, SelectParentsBreaksTiesRandomly) {
+  // All scores equal: the pre-sort shuffle alone determines the order, so
+  // equal-scoring programs can displace the current parents (neutral drift).
+  viaevo::RandomMock gen({7, 17});
+
+  viaevo::MutatorPointRandom mutator(gen);
+
+  std::vector<long long> scores{0, 0, 0, 0, 0};
+  viaevo::ScorerMarkedMock scorer({}, 20, {}, {0, 1, 2, 3, 9});
+
+  viaevo::EvolverAdHoc evolver("elfs/simple_small", 3, 1, 2, scorer, mutator,
+                               gen, 1, 1);
+
+  auto &programs = evolver.programs();
+
+  for (int i = 0; i < 5; ++i) {
+    std::vector<char> code = programs[i]->GetElfCode();
+    code[100] = 0xA0 + i;
+    programs[i]->SetElfCode(code);
+  }
+
+  evolver.SelectParents(scores);
+
+  // Shuffle yields {0,4,3,1,2} (see SelectParents test for the trace), the
+  // stable sort keeps it (all scores tie), and the phi slot (i=2) swaps with
+  // index 3 (7%3=1), yielding {0,4,1,3,2}. Programs 4 and 1 - not the
+  // pre-selection parents 1 and 2 - land in parent slots 1 and 2.
+  EXPECT_EQ(programs[0]->GetElfCode()[100], '\xA0');
+  EXPECT_EQ(programs[1]->GetElfCode()[100], '\xA4');
+  EXPECT_EQ(programs[2]->GetElfCode()[100], '\xA1');
+  EXPECT_EQ(programs[3]->GetElfCode()[100], '\xA3');
+  EXPECT_EQ(programs[4]->GetElfCode()[100], '\xA2');
 }
 
 TEST(EvolverAdHocTest, Run) {
@@ -107,10 +216,14 @@ TEST(EvolverAdHocTest, Run) {
 
   evolver.Run();
 
-  // There was an initial round of parent selection (all scores zero) what
-  // keeps the "labels" for the first two programs, others are unpredictable.
+  // The initial round of parent selection (all scores zero) is determined by
+  // the tie-breaking shuffle and the phi sampling with the mocked values
+  // {7, 17}: the parent slots end up as programs 0, 4 and 1 (same trace as in
+  // the SelectParentsBreaksTiesRandomly test). The offspring slots (3, 4) are
+  // mutated copies of these parents and are not asserted here.
   EXPECT_EQ(programs[0]->GetElfCode()[100], '\xA0');
-  EXPECT_EQ(programs[1]->GetElfCode()[100], '\xA1');
+  EXPECT_EQ(programs[1]->GetElfCode()[100], '\xA4');
+  EXPECT_EQ(programs[2]->GetElfCode()[100], '\xA1');
 }
 
 TEST(EvolverAdHocTest, RunAndScore) {

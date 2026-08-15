@@ -697,6 +697,14 @@ alongside the remaining §1 work.
 
 ### 12.1 φ (random-parent selection) is no longer implemented — regression
 
+**[DONE]** `SelectParents` now selects the top `mu_ - phi_` programs by score
+and fills the remaining `phi_` parent slots with a uniform random sample of
+the rest of the population (partial Fisher-Yates driven by `gen_`, so
+`RandomMock` keeps unit tests deterministic; `std::random_shuffle` is removed
+in C++17). The constructor asserts `0 <= phi_ <= mu_`. Covered by the
+`SelectParents` and `SelectParentsPhiPicksRandomParent` tests. Original
+finding below.
+
 `phi_` is stored by the `EvolverAdHoc` constructor but **never read anywhere**.
 The original implementation (commit `70db730`) selected the top `mu_ - phi_`
 programs via `std::nth_element` and then `random_shuffle`d the remainder so
@@ -718,6 +726,14 @@ dropped the φ behavior. Consequences:
   `std::random_shuffle`, which is removed in C++17) from the rest.
 
 ### 12.2 Tie-breaking shuffle was dropped with it — neutral drift is impossible
+
+**[DONE]** `SelectParents` now Fisher-Yates-shuffles the index array (via
+`gen_`) before the stable sort, so score ties are broken uniformly at random
+and equal-scoring offspring can displace parents again. Covered by the
+`SelectParentsBreaksTiesRandomly` test (all-tie population reordered away from
+the incumbent parents) and `SelectParentsIdentityShuffle` (pure-sort behavior
+isolated via an identity-shuffle RNG sequence). Re-running the all-`nop`
+experiment to gauge the effect remains open. Original finding below.
 
 The same `56d4473` refactor also removed the pre-selection shuffle whose stated
 purpose was "prevent breaking ties the same way in each generation". With
@@ -771,9 +787,9 @@ One less syscall the evolved code can reach.
 
 ### 12.6 Documentation staleness to fix
 
-- The README's Methods section still describes the φ random-parent selection
-  that the code no longer performs (§12.1) — whichever way §12.1 is resolved,
-  the README and the `--phi` flag help must be reconciled with the code.
+- **[DONE — resolved by §12.1]** The README's Methods section describes the φ
+  random-parent selection; with §12.1 reinstating that behavior, the README
+  and the `--phi` flag help match the code again.
 - Several `@path:line` references in §§1–2 and §10 of this document have
   drifted after the `elf_layout` extraction and other refactors (e.g.
   `program.h:119` → the `last_rip_offset_` block is now around

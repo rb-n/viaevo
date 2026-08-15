@@ -30,6 +30,7 @@ EvolverAdHoc::EvolverAdHoc(std::string elf_filename, int mu, int phi,
       max_generations_(max_generations),
       score_results_history_(score_results_history),
       output_filename_prefix_(output_filename_prefix) {
+  assert(phi_ >= 0 && mu_ >= phi_);
   for (int i = 0; i < mu_ + lambda_; ++i) {
     auto program = Program::Create(elf_filename);
     if (initialize_programs_to_all_nops) {
@@ -46,10 +47,27 @@ void EvolverAdHoc::SelectParents(std::vector<long long> &scores) {
   std::vector<int> indices(n, 0);
   std::iota(indices.begin(), indices.end(), 0);
 
+  // Break score ties randomly: shuffle the index array (Fisher-Yates driven by
+  // gen_ so mocked generators keep unit tests deterministic) before the stable
+  // sort below. Without this, ties resolve by index and the current parents
+  // (occupying the front of programs_) could never be displaced by
+  // equal-scoring offspring, making neutral drift impossible.
+  for (std::size_t i = n - 1; i > 0; --i) {
+    std::swap(indices[i], indices[gen_() % (i + 1)]);
+  }
+
   // Use stable_sort instead of e.g. nth_element to simplify unit testing.
   std::stable_sort(
       indices.begin(), indices.end(),
       [&scores](int a, int b) -> bool { return scores[a] > scores[b]; });
+
+  // The first (mu_ - phi_) parents are the top scorers. Fill the remaining
+  // phi_ parent slots with a uniform random sample of the rest of the
+  // population (partial Fisher-Yates) per the "phi parents selected at random"
+  // scheme described in the README.
+  for (std::size_t i = mu_ - phi_; i < static_cast<std::size_t>(mu_); ++i) {
+    std::swap(indices[i], indices[i + gen_() % (n - i)]);
+  }
 
   // Should be possible to do this without the extra space, e.g. cyclic sort.
   std::vector<std::shared_ptr<Program>> aux;

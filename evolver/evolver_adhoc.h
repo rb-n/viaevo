@@ -33,7 +33,10 @@ public:
                bool score_results_history = false,
                std::string output_filename_prefix = "",
                bool initialize_programs_to_all_nops = false);
-  // Selects mu_ parents by bringing them to the front of programs_.
+  // Selects mu_ parents by bringing them to the front of programs_: the top
+  // (mu_ - phi_) programs by score (ties broken randomly via a pre-sort
+  // shuffle), plus phi_ programs sampled uniformly at random from the rest of
+  // the population.
   virtual void SelectParents(std::vector<long long> &current_scores);
   // Creates lambda_ offspring in the last lambda_ elements of programs_ from
   // the first mu_ elements (parents), using mutator_.
