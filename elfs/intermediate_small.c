@@ -75,17 +75,20 @@ int main() {
   }
   NOPS;
   // Add some unconditional relative jumps (and check via objdump where these
-  // land) to allow for an accumulation of "silent mutations" in code that is
-  // not currently executed. This code may become executed when the jumps are
-  // modified or when (parts of) this non-executed code is "recombined" into an
-  // executed code of another (or the same) program.
-  asm("jmp . + 127");
+  // land - each must land inside the nop sled that follows the skipped block,
+  // never in the middle of an instruction) to allow for an accumulation of
+  // "silent mutations" in code that is not currently executed. This code may
+  // become executed when the jumps are modified or when (parts of) this
+  // non-executed code is "recombined" into an executed code of another (or the
+  // same) program.
+  asm("jmp . + 145");
   dummy[3] = dummy[4];
   dummy[6] = 4 * dummy[2];
   if (dummy[3] > dummy[5]) {
     dummy[5] = dummy[3];
   }
   dummy[7] = dummy[8] / dummy[9];
+  NOPS;
   NOPS;
   dummy[4] = dummy[5];
   dummy[8] = dummy[1] + dummy[4];
