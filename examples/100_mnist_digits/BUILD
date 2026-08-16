@@ -30,6 +30,7 @@ cc_binary(
     srcs = ["main.cc"],
     data = [
         ":train_data",
+        "//elfs:complex_large",
         "//elfs:intermediate_medium",
         "//elfs:simple_medium",
     ],

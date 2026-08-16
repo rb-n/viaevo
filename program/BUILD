@@ -65,6 +65,7 @@ cc_test(
     size = "small",
     srcs = ["program_test.cc"],
     data = [
+        "//elfs:complex_large",
         "//elfs:inf_loop",
         "//elfs:intermediate_medium",
         "//elfs:intermediate_small",

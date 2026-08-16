@@ -25,7 +25,10 @@ cc_test(
 cc_binary(
     name = "main",
     srcs = ["main.cc"],
-    data = ["//elfs:simple_small"],
+    data = [
+        "//elfs:complex_large",
+        "//elfs:simple_small",
+    ],
     deps = [
         ":scorer_guess_value",
         "//evolver:evolver_adhoc",

@@ -334,6 +334,22 @@ observes that all-`nop` starts never make progress, and that having *something*
 
 ### 4.1 Provide a richer "instruction vocabulary" in the template
 
+**[PARTIALLY DONE]** `elfs/complex_large.c` now carries a generic (benchmark
+agnostic) version of this vocabulary in named sections: loads/stores touching
+`inputs`/`results`/`scratchspace` directly (all stores into `results` read
+from locations holding `-1` in the template image, so an unevolved run leaves
+`results` visibly unchanged — "neutral vocabulary"), a balanced ALU mix
+(`+ - * & | ^ << >>` plus the existing `/` and `%`), register-register
+operations via inline asm with register constraints, immediate-bearing
+instructions (4-byte immediate fields as smooth mutation targets), the
+carried-over control flow, AVX2 vector ops, and nop-dense "junk DNA" rounds
+behind relative jumps (each jump's landing verified via objdump to fall inside
+a nop sled). The template is wired into `//elfs`, both example binaries, and
+`program_test` (`CreateExecuteComplexLarge`). Still open: "no I/O access" vs
+"with I/O access" template *variants* for a quantitative comparison, pushing
+the same vocabulary into the smaller templates, and generating templates from
+a spec (§4.5).
+
 The available raw material constrains what point mutations can reach. Seed the
 evolvable region with a diverse, balanced palette of *valid* building blocks so
 that a single bit flip is more likely to land on something useful:

@@ -386,6 +386,61 @@ TEST(ProgramTest, CreateExecuteIntermediateMedium) {
       << "Last results should be empty after 'full' Execute (#3)";
 }
 
+TEST(ProgramTest, CreateExecuteComplexLarge) {
+  std::shared_ptr<viaevo::Program> program =
+      viaevo::Program::Create("elfs/complex_large");
+
+  std::vector<int> default_results{-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
+  std::vector<int> changed_results = default_results;
+  // results[0] is changed in main() of //elfs:complex_large from -1 to 20. All
+  // other stores into results in the template read from locations holding -1
+  // in the template image (see the Section 2 comment in complex_large.c), so
+  // an unevolved execution leaves results[1..10] unchanged.
+  changed_results[0] = 20;
+
+  std::vector<char> elf_code_before_execute = program->GetElfCode();
+
+  // Execute the elf, should be terminated when 'attempting' exit.
+  int ptrace_stops_count_default = program->Execute();
+  EXPECT_EQ(ptrace_stops_count_default, 3)
+      << "'Default' Execute should observe exactly 3 ptrace stops: the "
+         "post-execveat SIGTRAP, the breakpoint SIGTRAP at main, and the "
+         "terminating stop from the code in main (#1)\nIf the elf process was "
+         "instead killed by signal 31 (SIGSYS), may want to add the offending "
+         "syscall to allowed seccomp rules in program.cc if this syscall was "
+         "newly added to elfs by a compiler/linker.";
+  EXPECT_EQ(program->last_syscall(), 231)
+      << "Last syscall should be exit for 'default' Execute (#1)";
+  EXPECT_EQ(program->last_term_signal(), 9)
+      << "Last term signal should be 9 (SIGKILL) for 'default' Execute (#1)";
+  EXPECT_EQ(program->last_stop_signal(), 5)
+      << "Last stop signal should be 5 (SIGTRAP) for 'default' Execute (#1)";
+  // main() executes: results[0] is changed to 20 and the I/O-touching
+  // vocabulary leaves results[1..10] unchanged.
+  EXPECT_EQ(program->last_results(), changed_results)
+      << "Unexpected last results after a 'default' Execute (#1)";
+  EXPECT_EQ(program->GetElfCode(), elf_code_before_execute)
+      << "Execute should not alter the ELF's evolvable code (#1)";
+
+  // Terminate the elf process at the breakpoint at main (before any code in
+  // main executes).
+  EXPECT_EQ(program->Execute(viaevo::Program::ExecuteMode::kStopAtMainEntry), 2)
+      << "'Stop at main' Execute should observe exactly 2 ptrace stops (#2)";
+  EXPECT_EQ(program->last_rip_offset(), 0)
+      << "Last rip offset should be 0 (main entry) for 'stop at main' Execute "
+         "(#2)";
+  EXPECT_EQ(program->last_results(), default_results)
+      << "Unexpected last results after a 'stop at main' Execute (#2)";
+
+  // Run the elf to completion (no breakpoint, syscalls traced throughout).
+  int ptrace_stops_count_full =
+      program->Execute(viaevo::Program::ExecuteMode::kRunToCompletion);
+  EXPECT_GT(ptrace_stops_count_full, 3)
+      << "Too few ptrace stops for 'full' Execute (#3)";
+  EXPECT_EQ(program->last_exit_status(), 0)
+      << "Last exit status should be 0 for 'full' Execute (#3)";
+}
+
 TEST(ProgramTest, GetSetElfCodeSimpleSmall) {
   std::shared_ptr<viaevo::Program> program =
       viaevo::Program::Create("elfs/simple_small");

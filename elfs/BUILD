@@ -75,6 +75,26 @@ sh_test(
 )
 
 cc_binary(
+    name = "complex_large",
+    srcs = ["complex_large.c"],
+    # The template contains AVX2 vector operations (immintrin.h).
+    copts = ["-mavx2"],
+    visibility = [
+        "//evolver:__pkg__",
+        "//examples:__subpackages__",
+        "//mutator:__pkg__",
+        "//program:__pkg__",
+    ],
+)
+
+sh_test(
+    name = "complex_large_test",
+    size = "small",
+    srcs = ["complex_large_test.sh"],
+    data = [":complex_large"],
+)
+
+cc_binary(
     name = "inf_loop",
     srcs = ["inf_loop.c"],
     visibility = ["//program:__pkg__"],
