@@ -21,8 +21,9 @@
 
 ABSL_FLAG(std::string, elf_filename, "elfs/simple_small",
           "filename of the ELF executable to be used as the starting template "
-          "for evolution (NOTE: results are expected to be initialized to {10, "
-          "-1, -1, -1, -1, -1, -1, -1, -1, -1, -1})");
+          "for evolution (NOTE: results are expected to be initialized to {-1, "
+          "-1, -1, -1, -1, -1, -1, -1, -1, -1, -1}; results[0] is changed to "
+          "20 in the template's main as a 'reached main' control)");
 ABSL_FLAG(
     int32_t, mu, 60,
     "number of parents selected in each generation to generate lambda "
