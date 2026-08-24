@@ -198,14 +198,29 @@ reading, and code mutation accessors. Consider splitting:
   / `elf_layout.cc`, unit-tested in `program/elf_layout_test.cc`. `Program` now
   calls it from `Create`. (It still terminates on malformed input; the
   recoverable-error split is tracked in §2.1.)
-- `Sandbox`/`Runner` — owns seccomp policy, fork/exec, ptrace loop, timeout. The
-  allowed-syscall list and the alarm timer belong here, not interleaved in
-  `Program`.
+- **[DONE]** `Sandbox` — owns the seccomp policy, the `vfork`/`execveat` spawn,
+  the int3-breakpoint-driven `ptrace` monitor loop, and the wall-clock timeout
+  (`program/sandbox.{h,cc}`). `Sandbox::Execute(const ElfImage&, ExecuteMode)`
+  returns an `ExecutionResult` (the `last_*` observations + `ptrace_stops`);
+  it holds no per-execution state (`Execute` is `const`) and the timeout is now
+  a configurable member (`timeout_usec`, default 50 ms) rather than a hardcoded
+  literal. `ExecuteMode` moved to `Sandbox` (re-exported as `Program::ExecuteMode`).
+  `Program` now holds an `ElfImage` + a `Sandbox`, and `Program::Execute` just
+  delegates and caches the result — `program.cc` shrank from ~500 lines to ~25.
+  `Sandbox` is unit-tested directly, without `Program`, in
+  `program/sandbox_test.cc`.
 
-This also removes the awkward "default constructor for mocking" TODO
-(`@/home/baran/prjs/viaevo/program/program.h:29-31`): if execution lives behind
-an interface (`ProgramRunner`), you mock the interface, not subclass a concrete
-class with a public default ctor.
+The awkward "default constructor for mocking" TODO
+(`@/home/baran/prjs/viaevo/program/program.h`) is **still open**: the example
+scorer tests subclass `Program`, default-construct it, and set the `protected`
+`last_results_` / `last_stop_signal_` directly (`ProgramMock` in the four
+example `scorer_*_test.cc` files, plus a bare `viaevo::Program program;` in
+`scorer/scorer_mock_test.cc`). Removing the default ctor requires giving the
+scorers a small "execution result" interface to mock instead of subclassing
+`Program` — a separate change touching those five test doubles, left for later.
+The `Sandbox` split above is a prerequisite that makes it straightforward (the
+scorers only need `last_results()` / `last_stop_signal()`, which an
+`ExecutionResult`-shaped interface already provides).
 
 ### 2.3 Static mutable global state
 

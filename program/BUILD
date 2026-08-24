@@ -46,10 +46,33 @@ cc_test(
 )
 
 cc_library(
+    name = "sandbox",
+    srcs = ["sandbox.cc"],
+    hdrs = ["sandbox.h"],
+    linkopts = ["-lseccomp"],
+    deps = [
+        ":elf_image",
+    ],
+)
+
+cc_test(
+    name = "sandbox_test",
+    size = "small",
+    srcs = ["sandbox_test.cc"],
+    data = [
+        "//elfs:simple_small",
+    ],
+    deps = [
+        ":elf_image",
+        ":sandbox",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_library(
     name = "program",
     srcs = ["program.cc"],
     hdrs = ["program.h"],
-    linkopts = ["-lseccomp"],
     visibility = [
         "//evolver:__pkg__",
         "//mutator:__pkg__",
@@ -57,6 +80,7 @@ cc_library(
     ],
     deps = [
         ":elf_image",
+        ":sandbox",
     ],
 )
 

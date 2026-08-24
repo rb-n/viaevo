@@ -6,49 +6,35 @@
 #ifndef VIAEVO_PROGRAM_PROGRAM_H_
 #define VIAEVO_PROGRAM_PROGRAM_H_
 
-#include <fcntl.h>
-
 #include <memory>
+#include <string>
 #include <vector>
 
 #include "elf_image.h"
+#include "sandbox.h"
 
 namespace viaevo {
 
-// Program manages the execution of an in-memory ELF (owned by the ElfImage
-// member) and the reading of its results. The ELF's evolvable code (main) and
-// inputs are accessed and modified via the delegating accessors below.
+// Program couples an in-memory ELF (ElfImage) with the Sandbox that executes
+// it. The ELF's evolvable code (main) and inputs are accessed and modified via
+// the delegating accessors below; Execute runs the ELF in the Sandbox and
+// caches the outcome for the last_* accessors.
 //
-// Execution places an int3 (0xCC) software breakpoint at the entry of main in
-// the traced ELF process, so "evolvable code reached" is detected exactly and
-// independently of how many system calls the loader/libc make before main.
-//
-// The class is not intended for subclassing (other than mock classes for unit
-// testing). Instances should be created via the factory method Create for ELFs
-// in //elfs.
+// The class is not intended for subclassing other than the mock classes for
+// unit testing that default-construct a Program and set the protected last_*
+// state directly (see the example scorer tests). Instances for real ELFs
+// should be created via the factory method Create.
 class Program {
 public:
-  // How Execute runs the ELF process:
-  // - kTerminateInEvolvedCode (default, used during evolution): run untraced
-  //   to an int3 breakpoint at main, remove the breakpoint, then terminate the
-  //   process at the first system call or signal originating from the
-  //   (evolved) code in main. Results are read from the process memory just
-  //   before termination.
-  // - kStopAtMainEntry: terminate the process at the breakpoint at main
-  //   instead; main never executes and the results read reflect the ELF's
-  //   initialized data.
-  // - kRunToCompletion: no breakpoint; trace system calls until the process
-  //   exits on its own. Intended for tests/diagnostics only - the code in main
-  //   runs unrestrained (still under seccomp and the timeout) and results are
-  //   not read.
-  enum class ExecuteMode {
-    kTerminateInEvolvedCode,
-    kStopAtMainEntry,
-    kRunToCompletion,
-  };
+  // Re-exported so callers can keep writing Program::ExecuteMode::... (the
+  // modes are defined on and implemented by Sandbox).
+  using ExecuteMode = Sandbox::ExecuteMode;
 
-  // TODO: Allowing the default constructor to make it easier to subclass for
-  // mocking in unit testing. May want to find a different approach.
+  // Default constructor exists for the unit-test mocks that subclass Program
+  // and populate the protected last_* members directly (the ElfImage is left
+  // uninitialized and Execute is never called on such instances).
+  // TODO (RECOMMENDATIONS.md 2.2): give the scorers an interface to mock so
+  // this subclass-and-poke pattern (and this ctor) can go away.
   Program() {}
   Program(const char *filename) : elf_image_(filename) {}
 
@@ -60,12 +46,9 @@ public:
   // Factory method to create Program instances based on one of the //elfs.
   static std::shared_ptr<Program> Create(const std::string &filename);
 
-  // Execute the program according to mode (see ExecuteMode above) and populate
-  // last_* member variables (last_results_ is populated unless mode is
-  // kRunToCompletion). Returns the number of ptrace stops observed during the
-  // process lifetime; in kTerminateInEvolvedCode mode this is 3 for a
-  // well-behaved run: the post-execveat SIGTRAP, the breakpoint SIGTRAP at
-  // main, and the terminating stop from the evolved code.
+  // Execute the ELF in the Sandbox according to mode (see Sandbox::ExecuteMode)
+  // and cache the outcome for the last_* accessors below. Returns the number of
+  // ptrace stops observed (3 for a well-behaved kTerminateInEvolvedCode run).
   int Execute(ExecuteMode mode = ExecuteMode::kTerminateInEvolvedCode);
 
   // Get and set the ELF's evolvable code (main).
@@ -96,53 +79,23 @@ public:
   int last_stop_signal() const { return last_stop_signal_; }
   const std::vector<int> &last_results() const { return last_results_; }
 
-private:
-  // Monitors the separate ELF process via ptrace stops (breakpoint-driven, see
-  // the class comment and the State enum in the implementation). Also
-  // populates last_results_ (unless mode is kRunToCompletion). Returns the
-  // number of ptrace stops during the lifetime of the ELF process.
-  int MonitorElfProcess(pid_t elf_pid, ExecuteMode mode);
-
-  // Runs the ELF in a new process (created via vfork prior to calling this
-  // function).
-  void RunElfProcess();
-
-  // Reads last_results_ from the ELF process and updates last_rip_offset_.
-  // start_code and start_data are the process's runtime text and data segment
-  // start addresses (parsed from /proc/[elf_pid]/stat at the post-exec stop).
-  void ReadLastResultsAndLastRipOffsetFromElfProcess(pid_t elf_pid,
-                                                     unsigned long long rip,
-                                                     unsigned long start_code,
-                                                     unsigned long start_data);
-
-  // Clears last_* member variables.
-  void ClearLastState();
-
 protected:
-  // The in-memory ELF (memfd + symbol data) this Program executes and
-  // modifies.
+  // The in-memory ELF (memfd + symbol data) this Program executes and modifies.
   ElfImage elf_image_;
 
-  // Last syscall, rip (instruction pointer) offset (vs. main), status, and
-  // signal observed in the elf process.
-  static constexpr unsigned long long kInvalidSyscall = 9999;
-  unsigned long long last_syscall_ = kInvalidSyscall;
+  // Runs elf_image_ in a locked-down child process. Holds no per-execution
+  // state, so a single instance is reused across Execute calls.
+  Sandbox sandbox_;
 
-  // Offset of the last observed instruction pointer (rip) relative to main.
-  // Signed so that kInvalidRipOffset (-1) is a genuine sentinel and so that
-  // out-of-main offsets can be detected via a "< 0" check (see
-  // MutatorPointLastInstruction).
-  static constexpr long long kInvalidRipOffset = -1;
-  long long last_rip_offset_ = kInvalidRipOffset;
-
-  static constexpr int kInvalidExitStatus = -9999;
-  int last_exit_status_ = kInvalidExitStatus;
-
-  static constexpr int kInvalidSignal = -1;
-  int last_term_signal_ = kInvalidSignal;
-  int last_stop_signal_ = kInvalidSignal;
-
-  // Results from the last completed execution of the program.
+  // Outcome of the last Execute, copied out of the Sandbox's ExecutionResult.
+  // Left as individual members (rather than an ExecutionResult) because the
+  // unit-test mocks poke last_results_ / last_stop_signal_ directly. Initial
+  // values are the ExecutionResult "not run yet" sentinels.
+  unsigned long long last_syscall_ = ExecutionResult::kInvalidSyscall;
+  long long last_rip_offset_ = ExecutionResult::kInvalidRipOffset;
+  int last_exit_status_ = ExecutionResult::kInvalidExitStatus;
+  int last_term_signal_ = ExecutionResult::kInvalidSignal;
+  int last_stop_signal_ = ExecutionResult::kInvalidSignal;
   std::vector<int> last_results_;
 };
 
