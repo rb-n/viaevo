@@ -35,8 +35,11 @@ public:
                bool initialize_programs_to_all_nops = false);
   // Selects mu_ parents by bringing them to the front of programs_: the top
   // (mu_ - phi_) programs by score (ties broken randomly via a pre-sort
-  // shuffle), plus phi_ programs sampled uniformly at random from the rest of
-  // the population.
+  // shuffle), plus phi_ programs sampled at random from the rest of the
+  // population. The random (phi_) sample prefers programs with a positive
+  // score; zero-score programs (which includes anything that timed out on every
+  // execution - see Scorer::Score returning 0 on SIGALRM) are drawn only when a
+  // slot has no positive-scoring candidates left.
   virtual void SelectParents(std::vector<long long> &current_scores);
   // Creates lambda_ offspring in the last lambda_ elements of programs_ from
   // the first mu_ elements (parents), using mutator_.

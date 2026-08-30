@@ -141,6 +141,74 @@ TEST(EvolverAdHocTest, SelectParentsPhiPicksRandomParent) {
   EXPECT_EQ(programs[4]->GetElfCode()[100], '\xA0');
 }
 
+TEST(EvolverAdHocTest, SelectParentsPhiPrefersPositiveScore) {
+  // Identity shuffle ({4,3,2,1,...}), scores {0,5,3,8,1}. The stable sort by
+  // score gives {3,1,2,4,0}, so the top two parents are programs 3 and 1 and
+  // the phi pool (i = 2) is {2, 4, 0} with scores {3, 1, 0}. The phi slot must
+  // draw only from the positive-scoring candidates {2, 4}; with the 5th mocked
+  // value 2 (2 % 2 == 0) it picks program 2 - whereas a plain uniform sample
+  // over the whole pool (2 % 3 == 2) would have picked the zero-scoring program
+  // 0.
+  viaevo::RandomMock gen({4, 3, 2, 1, 2});
+
+  viaevo::MutatorPointRandom mutator(gen);
+
+  std::vector<long long> scores{0, 5, 3, 8, 1};
+  viaevo::ScorerMarkedMock scorer({}, 20, {}, {0, 1, 2, 3, 9});
+
+  viaevo::EvolverAdHoc evolver("elfs/simple_small", 3, 1, 2, scorer, mutator,
+                               gen, 1, 1);
+
+  auto &programs = evolver.programs();
+
+  for (int i = 0; i < 5; ++i) {
+    std::vector<char> code = programs[i]->GetElfCode();
+    code[100] = 0xA0 + i;
+    programs[i]->SetElfCode(code);
+  }
+
+  evolver.SelectParents(scores);
+
+  EXPECT_EQ(programs[0]->GetElfCode()[100], '\xA3');
+  EXPECT_EQ(programs[1]->GetElfCode()[100], '\xA1');
+  // The phi parent skips the zero-scoring program 0 for a positive scorer.
+  EXPECT_EQ(programs[2]->GetElfCode()[100], '\xA2');
+}
+
+TEST(EvolverAdHocTest, SelectParentsPhiFallsBackToZeroScoreWhenNoOtherCandidates) {
+  // If every candidate for the phi slot scored zero, there is no positive
+  // scorer to draw and the slot falls back to sampling the full remainder - so
+  // a zero-scoring program can still become a parent when nothing else is
+  // available (this is exactly SelectParentsPhiPicksRandomParent). The stable
+  // sort gives {3,1,0,2,4}; the phi pool (programs 0, 2, 4) all scored zero, so
+  // the 5th mocked value 2 (2 % 3 == 2) selects program 4.
+  viaevo::RandomMock gen({4, 3, 2, 1, 2});
+
+  viaevo::MutatorPointRandom mutator(gen);
+
+  std::vector<long long> scores{0, 2, 0, 5, 0};
+  viaevo::ScorerMarkedMock scorer({}, 20, {}, {0, 1, 2, 3, 9});
+
+  viaevo::EvolverAdHoc evolver("elfs/simple_small", 3, 1, 2, scorer, mutator,
+                               gen, 1, 1);
+
+  auto &programs = evolver.programs();
+
+  for (int i = 0; i < 5; ++i) {
+    std::vector<char> code = programs[i]->GetElfCode();
+    code[100] = 0xA0 + i;
+    programs[i]->SetElfCode(code);
+  }
+
+  evolver.SelectParents(scores);
+
+  EXPECT_EQ(programs[0]->GetElfCode()[100], '\xA3');
+  EXPECT_EQ(programs[1]->GetElfCode()[100], '\xA1');
+  // No positive-scoring candidate remained, so the zero-scoring program 4 is
+  // still selected.
+  EXPECT_EQ(programs[2]->GetElfCode()[100], '\xA4');
+}
+
 TEST(EvolverAdHocTest, SelectParentsBreaksTiesRandomly) {
   // All scores equal: the pre-sort shuffle alone determines the order, so
   // equal-scoring programs can displace the current parents (neutral drift).

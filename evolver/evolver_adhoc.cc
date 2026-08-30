@@ -62,11 +62,28 @@ void EvolverAdHoc::SelectParents(std::vector<long long> &scores) {
       [&scores](int a, int b) -> bool { return scores[a] > scores[b]; });
 
   // The first (mu_ - phi_) parents are the top scorers. Fill the remaining
-  // phi_ parent slots with a uniform random sample of the rest of the
-  // population (partial Fisher-Yates) per the "phi parents selected at random"
-  // scheme described in the README.
+  // phi_ parent slots with a random sample of the rest of the population
+  // (partial Fisher-Yates) per the "phi parents selected at random" scheme
+  // described in the README. The sample prefers programs with a positive score:
+  // at each slot the candidate pool is the remaining programs whose score is
+  // greater than zero, and only if that pool is empty (every remaining program
+  // scored zero) does the slot fall back to the full remainder. This
+  // deprioritizes programs that produced nothing useful - including anything
+  // that timed out on every execution, which scores zero. When every remaining
+  // program scores zero the pool is the full remainder and this reduces to the
+  // previous uniform sample (identical RNG use).
+  std::vector<std::size_t> candidates;
   for (std::size_t i = mu_ - phi_; i < static_cast<std::size_t>(mu_); ++i) {
-    std::swap(indices[i], indices[i + gen_() % (n - i)]);
+    candidates.clear();
+    for (std::size_t j = i; j < n; ++j) {
+      if (scores[indices[j]] > 0)
+        candidates.push_back(j);
+    }
+    if (candidates.empty()) {
+      for (std::size_t j = i; j < n; ++j)
+        candidates.push_back(j);
+    }
+    std::swap(indices[i], indices[candidates[gen_() % candidates.size()]]);
   }
 
   // Should be possible to do this without the extra space, e.g. cyclic sort.
