@@ -852,3 +852,71 @@ One less syscall the evolved code can reach.
   `program.h:116-120`; `Program::Create` is now `program.cc:160-170`). Treat
   line numbers in this file as approximate; the symbol names remain the
   reliable anchors.
+
+### 12.7 The execution timeout should bound CPU time, not wall-clock time
+
+`Sandbox::RunElfProcess` arms `ITIMER_REAL` (`program/sandbox.cc:397`), a
+**wall-clock** timer, in the child right before `execveat` (itimers survive
+`execve`, so the 50 ms budget covers the exec'd program's whole run up to its
+first syscall/breakpoint). The default `timeout_usec_` is 50 ms
+(`program/sandbox.h:77`). Wall-clock means the budget counts time the process
+spends **descheduled** — waiting in the run queue for a CPU while other work
+runs — not just time it spends working. This is the wrong quantity to bound and
+can kill legitimate programs for reasons unrelated to their behavior:
+
+- **For the compute the evolved programs actually do, 50 ms is enormous.** These
+  are a few hundred machine instructions in `main`; the intrinsic cost is
+  microseconds. The dominant real cost of a normal run is the `execveat` plus
+  the three ptrace round-trips — well under a millisecond in isolation. So 50 ms
+  is ~1000× more than a legitimate program needs; it is *not* too short for the
+  program to finish its work.
+- **But because it is a wall-clock timer, a legitimate program can be killed
+  purely from scheduling jitter.** Evaluation runs with `std::execution::par`
+  across all `mu_ + lambda_` (~200) programs, each spawning a ptraced child with
+  many stop/continue context switches. On a loaded machine a trivial program can
+  genuinely sit descheduled for tens of ms and trip the timeout without ever
+  running away. This is the "eliminated due to other delays" failure mode.
+- The impact is bounded, though: with the §12.1 φ selection plus the
+  positive-score preference now in `SelectParents` (a program that times out on
+  every execution scores zero and is deprioritized), a *single* false timeout
+  only zeroes one evaluation. A program drops out entirely only if it times out
+  on *all* evaluations in a generation, which a transient blip will not cause.
+  So wall-clock false positives add scoring noise, not wholesale loss of good
+  lineages.
+
+An observed *drop* in `sigalarms_count` after the selection change is expected
+from the selection change itself (timeout/inf-loop lineages no longer propagate
+into parents), not evidence about the timeout value — do not read it as a signal
+that 50 ms is now correct.
+
+**There is no good wall-clock number.** Raising it cuts false positives but
+makes every inf-loop program (common in random code) waste proportionally more
+wall time; since a generation finishes when its slowest members finish, doubling
+the timeout roughly doubles the generation-time floor. Lowering it raises false
+positives. The knob trades the two off because it measures the wrong thing.
+
+**Recommendation: bound CPU time instead of wall time** — `ITIMER_PROF`
+(user+system CPU) or `ITIMER_VIRTUAL` (user only) rather than `ITIMER_REAL`,
+keeping the same 50 ms number as a CPU budget. Then a legitimate program using
+<1 ms of CPU never trips the timeout *regardless of system load* (descheduling
+does not advance a CPU timer, and ptrace-stop time does not count either), while
+a real infinite loop still burns CPU and is still killed promptly. This
+preserves the current safety posture — a hard, short bound on runaway programs —
+while removing the load-induced false kills. Caveats:
+
+- The delivered signal changes (`SIGPROF`/`SIGVTALRM` instead of `SIGALRM`), and
+  every scorer detects timeouts via `last_stop_signal() == SIGALRM`. So this
+  ripples into all five scorers plus `sandbox.cc`'s startup-signal handling —
+  mechanical, but it touches several files. (This pairs with the §7 item on
+  centralizing the SIGALRM/"non-viable" penalty out of the individual scorers.)
+- A pure CPU timer will not fire on a program *blocked* (not spinning) — e.g.
+  hung in a blocking syscall during startup. The monitor already terminates
+  evolved code at its first syscall (`kTerminateInEvolvedCode`), so that window
+  is small, but for belt-and-suspenders one can run **both** timers
+  simultaneously (they are independent): a tight `ITIMER_PROF` (e.g. 50 ms CPU)
+  as the real bound plus a loose `ITIMER_REAL` (e.g. 500 ms wall) purely as a
+  hang backstop, with a scorer treating either signal as a timeout.
+
+Lower-effort interim option if the scorer ripple is undesirable now: keep the
+wall-clock timer but expose `timeout_usec_` as a proper CLI flag (there is an
+existing "use a command line flag" TODO) so it can be tuned per machine.
