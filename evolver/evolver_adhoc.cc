@@ -108,7 +108,8 @@ void EvolverAdHoc::CreateOffspring() {
   // testing though.
 }
 
-int EvolverAdHoc::EvaluatePrograms(std::vector<long long> &current_scores) {
+EvolverAdHoc::TimeoutCounts
+EvolverAdHoc::EvaluatePrograms(std::vector<long long> &current_scores) {
   std::fill(current_scores.begin(), current_scores.end(), 0);
 
   // results_history is local to a single generation: it is accumulated across
@@ -118,15 +119,17 @@ int EvolverAdHoc::EvaluatePrograms(std::vector<long long> &current_scores) {
     results_history.resize(mu_ + lambda_);
   }
 
-  // Count SIGALRMs - timeouts due to a long running program (e.g. inf loop).
-  std::atomic<int> sigalarms_count(0);
+  // Count timeouts of a long running program (e.g. inf loop) by kind: SIGPROF
+  // is the CPU-time bound, SIGALRM the wall-clock backstop (see Sandbox).
+  std::atomic<int> sigprofs_count(0), sigalarms_count(0);
   std::vector<int> indices(mu_ + lambda_, 0);
   std::iota(indices.begin(), indices.end(), 0);
   for (int j = 0; j < evaluations_per_program_; ++j) {
     scorer_.ResetInputs();
     std::for_each(
         std::execution::par, indices.begin(), indices.end(),
-        [this, &current_scores, &results_history, &sigalarms_count](int i) {
+        [this, &current_scores, &results_history, &sigprofs_count,
+         &sigalarms_count](int i) {
           programs_[i]->SetElfInputs(scorer_.current_inputs());
           programs_[i]->Execute();
           long long score = scorer_.Score(*programs_[i]);
@@ -134,7 +137,9 @@ int EvolverAdHoc::EvaluatePrograms(std::vector<long long> &current_scores) {
           if (score_results_history_) {
             results_history[i].push_back(programs_[i]->last_results());
           }
-          if (programs_[i]->last_stop_signal() == SIGALRM) {
+          if (programs_[i]->last_stop_signal() == SIGPROF) {
+            ++sigprofs_count;
+          } else if (programs_[i]->last_stop_signal() == SIGALRM) {
             ++sigalarms_count;
           }
         });
@@ -146,7 +151,7 @@ int EvolverAdHoc::EvaluatePrograms(std::vector<long long> &current_scores) {
     }
   }
 
-  return sigalarms_count;
+  return {sigprofs_count.load(), sigalarms_count.load()};
 }
 
 void EvolverAdHoc::Run() {
@@ -170,7 +175,7 @@ void EvolverAdHoc::Run() {
     CreateOffspring();
     // Stage 3 (EvaluatePrograms): Update programs_ inputs, execute and score
     // programs_.
-    int sigalarms_count = EvaluatePrograms(current_scores);
+    TimeoutCounts timeouts = EvaluatePrograms(current_scores);
 
     long long best_generation_score = 0;
     std::unordered_map<long long, int> rip_offset_counts;
@@ -197,7 +202,8 @@ void EvolverAdHoc::Run() {
               << " | rip distinct: " << rip_offset_counts.size()
               << " top: " << top_rip_offset
               << " count: " << top_rip_offset_count
-              << " sigalrms: " << sigalarms_count << std::flush;
+              << " sigprofs/alrms: " << timeouts.sigprofs << "/"
+              << timeouts.sigalrms << std::flush;
     if (best_overall_score < best_generation_score) {
       best_overall_score = best_generation_score;
       std::cout << "\n            | best last results: ";

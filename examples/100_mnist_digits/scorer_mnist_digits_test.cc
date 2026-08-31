@@ -341,7 +341,10 @@ TEST(ScorerMnistDigitsTest, Score) {
   EXPECT_EQ(scorer.expected_value(), 1);
   EXPECT_EQ(scorer.Score(program), 1'000'000);
 
-  // Penalize long running programs.
+  // Penalize long running programs: the CPU-time timeout (SIGPROF) and the
+  // wall-clock backstop (SIGALRM) both count as timeouts.
+  program.set_last_stop_signal(27); // SIGPROF
+  EXPECT_EQ(scorer.Score(program), 0);
   program.set_last_stop_signal(14); // SIGALRM
   EXPECT_EQ(scorer.Score(program), 0);
 }

@@ -458,7 +458,8 @@ TEST(EvolverAdHocTest, EvaluatePrograms) {
 
   // Pre-fill with garbage to confirm EvaluatePrograms clears before scoring.
   std::vector<long long> current_scores{99, 99, 99, 99, 99};
-  int sigalarms = evolver.EvaluatePrograms(current_scores);
+  viaevo::EvolverAdHoc::TimeoutCounts timeouts =
+      evolver.EvaluatePrograms(current_scores);
 
   // Scores reflect each program's mark; unknown marks (0xA2..0xA4) score 0.
   EXPECT_EQ(current_scores[0], 2); // 0xA0
@@ -466,7 +467,8 @@ TEST(EvolverAdHocTest, EvaluatePrograms) {
   EXPECT_EQ(current_scores[2], 0); // 0xA2 (unknown mark)
   EXPECT_EQ(current_scores[3], 0);
   EXPECT_EQ(current_scores[4], 0);
-  EXPECT_GE(sigalarms, 0);
+  EXPECT_GE(timeouts.sigprofs, 0);
+  EXPECT_GE(timeouts.sigalrms, 0);
 }
 
 } // namespace

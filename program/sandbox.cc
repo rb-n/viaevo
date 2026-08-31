@@ -307,8 +307,8 @@ int Sandbox::MonitorElfProcess(pid_t elf_pid, const ElfImage &image,
               myfail("PTRACE_CONT failed");
           }
         } else {
-          // E.g. SIGALRM if the timeout expires before exec completes on a
-          // heavily loaded machine. Forward the signal (typically fatal).
+          // E.g. a SIGALRM/SIGPROF timeout expiring before exec completes.
+          // Forward the signal (typically fatal).
           if (ptrace(PTRACE_CONT, elf_pid, 0, result->last_stop_signal) == -1)
             myfail("PTRACE_CONT failed");
         }
@@ -337,8 +337,8 @@ int Sandbox::MonitorElfProcess(pid_t elf_pid, const ElfImage &image,
               myfail("PTRACE_SYSCALL failed");
           }
         } else {
-          // A signal before main (e.g. the SIGALRM timeout during startup);
-          // forward it (typically fatal).
+          // A signal before main (e.g. a SIGALRM/SIGPROF timeout during
+          // startup); forward it (typically fatal).
           if (ptrace(PTRACE_CONT, elf_pid, 0, result->last_stop_signal) == -1)
             myfail("PTRACE_CONT failed");
         }
@@ -347,7 +347,7 @@ int Sandbox::MonitorElfProcess(pid_t elf_pid, const ElfImage &image,
       case State::kInEvolvedCode:
         // The first stop after main was entered: a syscall-entry stop (SIGTRAP
         // from PTRACE_SYSCALL) or a signal (e.g. SIGSEGV/SIGILL for an invalid
-        // program, SIGALRM for a long running one). The (result) data are
+        // program, SIGPROF/SIGALRM for a long running one). The (result) data are
         // explored at this point and the process is killed - a stopped
         // syscall-entry never executes the system call.
         ReadResultsAndRipOffset(elf_pid, image, regs.rip, start_code,
@@ -385,16 +385,32 @@ int Sandbox::MonitorElfProcess(pid_t elf_pid, const ElfImage &image,
 }
 
 void Sandbox::RunElfProcess(const ElfImage &image) const {
-  // "Ask for a SIGALRM" to be delivered to the child process. This should cause
-  // a termination of the process if e.g. an infinite loop is present.
-  struct itimerval alarm_timer;
+  // Arm the execution timeouts. Both itimers survive the execveat() below and
+  // are armed before the seccomp filter is installed, so setitimer need not be
+  // in the allowlist.
+  //
+  // Primary bound: CPU time (ITIMER_PROF -> SIGPROF). This caps how much work
+  // the evolved code does and, unlike a wall-clock timer, does not advance while
+  // the process is descheduled or stopped under ptrace - so a legitimate
+  // program is not killed merely because the machine is loaded
+  // (RECOMMENDATIONS.md 12.7). A runaway/looping program burns CPU and still
+  // trips it promptly.
+  struct itimerval cpu_timer;
+  cpu_timer.it_interval.tv_sec = 0;
+  cpu_timer.it_interval.tv_usec = 0;
+  cpu_timer.it_value.tv_sec = cpu_timeout_usec_ / 1000000;
+  cpu_timer.it_value.tv_usec = cpu_timeout_usec_ % 1000000;
+  setitimer(ITIMER_PROF, &cpu_timer, NULL);
 
-  alarm_timer.it_interval.tv_sec = 0;
-  alarm_timer.it_interval.tv_usec = 0;
-  alarm_timer.it_value.tv_sec = timeout_usec_ / 1000000;
-  alarm_timer.it_value.tv_usec = timeout_usec_ % 1000000;
-
-  setitimer(ITIMER_REAL, &alarm_timer, NULL);
+  // Backstop: wall-clock time (ITIMER_REAL -> SIGALRM). The CPU timer cannot
+  // fire for a process that blocks without running (e.g. hung in a blocking
+  // syscall during startup); this looser wall-clock timer bounds that case.
+  struct itimerval wall_timer;
+  wall_timer.it_interval.tv_sec = 0;
+  wall_timer.it_interval.tv_usec = 0;
+  wall_timer.it_value.tv_sec = wall_timeout_usec_ / 1000000;
+  wall_timer.it_value.tv_usec = wall_timeout_usec_ % 1000000;
+  setitimer(ITIMER_REAL, &wall_timer, NULL);
 
   // From:
   // https://stackoverflow.com/questions/63208333/using-memfd-create-and-fexecve-to-run-elf-from-memory

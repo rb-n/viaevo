@@ -839,9 +839,11 @@ TEST(ProgramTest, CreateExecuteInfLoop) {
       << "Last exit status should be invalid for 'default' Execute (#1)";
   EXPECT_EQ(program->last_term_signal(), 9)
       << "Last term signal should be 9 (SIGKILL) for 'default' Execute (#1)";
-  EXPECT_EQ(program->last_stop_signal(), 14)
-      << "Last stop signal should be 14 (SIGALRM) for 'default' Execute "
-         "(#1)\nMay want to add this syscall to allowed seccomp rules in "
+  EXPECT_EQ(program->last_stop_signal(), 27)
+      << "Last stop signal should be 27 (SIGPROF) for 'default' Execute "
+         "(#1): a busy loop burns CPU and trips the CPU-time timeout "
+         "(ITIMER_PROF) before the wall-clock backstop (ITIMER_REAL, SIGALRM). "
+         "\nMay want to add this syscall to allowed seccomp rules in "
          "program.cc if this syscall was newly added to elfs by a "
          "compiler/linker.";
   // main() in //elfs:simple_small executes therefore the value of results[0] is

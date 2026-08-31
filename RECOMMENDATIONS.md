@@ -855,6 +855,27 @@ One less syscall the evolved code can reach.
 
 ### 12.7 The execution timeout should bound CPU time, not wall-clock time
 
+**[DONE — dual-timer belt-and-suspenders implemented]** `Sandbox` now arms two
+independent itimers in the child (both survive `execveat` and are set before the
+seccomp filter, so neither needs to be allowlisted): a **CPU-time** timer
+(`ITIMER_PROF` → `SIGPROF`, default 50 ms) as the primary bound on
+runaway/looping evolved code, plus a looser **wall-clock** timer (`ITIMER_REAL`
+→ `SIGALRM`, default 500 ms) purely as a backstop for a child that blocks
+without consuming CPU. The CPU timer does not advance while the process is
+descheduled or ptrace-stopped, so a legitimate program is no longer killed
+merely because the machine is loaded. `Sandbox`'s constructor takes
+`cpu_timeout_usec` and `wall_timeout_usec`. Either signal terminating in the
+evolved code counts as a timeout: the `ScorerMnistDigits` timeout penalty now
+tests `SIGPROF || SIGALRM`, and `EvaluatePrograms` returns a `TimeoutCounts
+{sigprofs, sigalrms}` that `Run()` reports as `sigprofs/alrms: XXX/YYY`. The
+`inf_loop` regression test (a busy `while(1)`) now observes `SIGPROF` (27),
+confirming the CPU timer fires first for a runaway program; an 8-generation
+MNIST smoke run showed nonzero `sigprofs` with `sigalrms` at 0, i.e. the
+wall-clock backstop stays quiet in normal operation. Still open: the §7
+centralization of the timeout/"non-viable" penalty out of the individual
+scorers (only `ScorerMnistDigits` special-cases it today), and exposing the two
+timeouts as CLI flags. Original finding below.
+
 `Sandbox::RunElfProcess` arms `ITIMER_REAL` (`program/sandbox.cc:397`), a
 **wall-clock** timer, in the child right before `execveat` (itimers survive
 `execve`, so the 50 ms budget covers the exec'd program's whole run up to its

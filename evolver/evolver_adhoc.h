@@ -44,11 +44,18 @@ public:
   // Creates lambda_ offspring in the last lambda_ elements of programs_ from
   // the first mu_ elements (parents), using mutator_.
   virtual void CreateOffspring();
+  // Counts of the two timeout kinds the Sandbox can deliver in a generation:
+  // SIGPROF (the primary CPU-time bound) and SIGALRM (the wall-clock backstop).
+  // See RECOMMENDATIONS.md 12.7.
+  struct TimeoutCounts {
+    int sigprofs = 0;
+    int sigalrms = 0;
+  };
   // Resets current_scores to zero, then runs evaluations_per_program_ rounds of
   // (ResetInputs + parallel execute + score), followed by results-history
   // scoring. current_scores must already be sized mu_ + lambda_. Returns the
-  // number of SIGALRM timeouts observed during the generation.
-  virtual int EvaluatePrograms(std::vector<long long> &current_scores);
+  // per-kind timeout counts observed across the generation.
+  virtual TimeoutCounts EvaluatePrograms(std::vector<long long> &current_scores);
   // Runs the evolution.
   void Run() override;
 

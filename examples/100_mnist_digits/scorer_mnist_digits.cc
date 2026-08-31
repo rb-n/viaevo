@@ -37,9 +37,11 @@ ScorerMnistDigits::ScorerMnistDigits(Random &gen, std::string images_filename,
 }
 
 long long ScorerMnistDigits::Score(const Program &program) const {
-  if (program.last_stop_signal() == SIGALRM) {
-    // Penalize long running programs (receiving SIGALRM set up in
-    // Program::RunElfProcess) - e.g. due to an infinite loop.
+  if (program.last_stop_signal() == SIGPROF ||
+      program.last_stop_signal() == SIGALRM) {
+    // Penalize long running programs - e.g. due to an infinite loop. The
+    // Sandbox arms a CPU-time timeout (SIGPROF) as the primary bound and a
+    // wall-clock timeout (SIGALRM) as a backstop; either indicates a timeout.
     return 0;
   }
 
