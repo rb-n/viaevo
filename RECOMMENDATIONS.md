@@ -8,8 +8,9 @@ the current code where relevant.
 The sections are independent and roughly ordered as: bugs to fix first, then
 C++ design, the SIGUSR idea, template-program evolvability, benchmark problems,
 prior art, scoring, infrastructure/reproducibility, documentation, operability
-features (checkpointing, program libraries, interactive control), and a
-prioritized roadmap.
+features (checkpointing, program libraries, interactive control), a
+prioritized roadmap, and two follow-up review passes (§12, 2026-08; §13,
+2026-09) whose items amend the roadmap.
 
 ---
 
@@ -412,7 +413,9 @@ Homologous crossover works best when parents share structure. If every template
 instance starts identical and you track instruction boundaries, recombination
 can be made *boundary-aware* (cut at instruction starts) — drastically reducing
 invalid-instruction generation versus the current byte-offset cuts in
-`mutator_recombine_random.cc:20-29`.
+`mutator_recombine_random.cc:20-29`. See §13.4 for why the *position* of the
+cut matters even more than its alignment: x86-64 RIP-relative operands and
+relative jumps change meaning when moved to a different offset.
 
 ### 4.5 Make the palette a generated artifact
 
@@ -941,3 +944,417 @@ while removing the load-induced false kills. Caveats:
 Lower-effort interim option if the scorer ripple is undesirable now: keep the
 wall-clock timer but expose `timeout_usec_` as a proper CLI flag (there is an
 existing "use a command line flag" TODO) so it can be tuned per machine.
+
+---
+
+## 13. Additional findings (2026-09 review)
+
+A further pass after the `Sandbox` extraction and the CPU-time timeout
+landed. Items are grouped as: concrete defects (13.1), execution-environment
+determinism and safety (13.2), throughput (13.3), a representation-level
+observation about why the current recombination is destructive (13.4),
+mutation operators (13.5), MNIST-specific scoring and input representation
+(13.6), instrumentation for the "validity tax" question the README poses
+(13.7), search-strategy ideas (13.8), and build/test/docs hygiene (13.9). The
+roadmap in §11 is amended at the end (13.10).
+
+### 13.1 Concrete defects
+
+- **`mutator_recombine_plain_elf_test` never compiles its test file.** In
+  `mutator/BUILD` the `cc_test` lists `srcs = ["mutator_recombine_plain_elf.cc"]`
+  (the library source) instead of `mutator_recombine_plain_elf_test.cc`. The
+  binary links `gtest_main` with zero test cases and reports
+  `[  PASSED  ] 0 tests` — verified via `bazel test`. The two tests in
+  `mutator_recombine_plain_elf_test.cc` (`Mutate`, `InitializeProgramToAllNops`)
+  have therefore never run under Bazel. One-line fix; then check whether the
+  tests still pass, since they may have bit-rotted.
+- **`mutator_composite_random_test.cc` names its suite `MutatorRecombineRandomTest`**
+  (copy-paste from the recombine test). Harmless, but it makes `--gtest_filter`
+  and failure output misleading.
+- **Input validation is `assert`-only and vanishes under `-c opt`.** Every
+  check in `ScorerMnistDigits::LoadData`/`LoadSample` (file open, magic bytes,
+  dimensions, read counts), the `ScorerGuessValue(-1)` guard, and the
+  `phi_ >= 0 && mu_ >= phi_` check in `EvolverAdHoc`'s constructor are
+  `assert()`s. Bazel's `-c opt` defines `NDEBUG`, so an optimized build silently
+  proceeds with an unopened/truncated MNIST file (zeroed inputs, garbage labels)
+  or an invalid `phi`. The `EXPECT_DEATH` test for `ScorerGuessValue(-1)` would
+  also fail under `-c opt`. Replace these with unconditional checks (a
+  `CHECK`-style macro or the §2.1 error path); keep `assert` for internal
+  invariants only. This matters because 13.3 recommends actually building with
+  `-c opt`.
+- **The ignored `PTRACE_GETREGS` failure path leaks a zombie.** When
+  `Sandbox::MonitorElfProcess` hits the "No such process" case it `return`s
+  from inside the `waitpid` loop without ever reaping the child, so the process
+  (if it is still exiting) stays a zombie until the evolver exits, and
+  `result->last_results` may be stale. At minimum, on `ESRCH` continue the
+  `waitpid` loop until `WIFEXITED`/`WIFSIGNALED` so the child is always reaped,
+  and count these occurrences the way `ResultsHaveMinSize` does so their
+  frequency is visible. (See 13.2 for `PTRACE_O_EXITKILL`, which also narrows
+  the set of possible causes.)
+- **`ReadProcStatAddresses` is the last brittle piece of the monitor.** It
+  parses `/proc/[pid]/stat` positionally (the code's own NOTE flags the
+  signedness assumptions) and pairs the kernel's `start_data` with the
+  `data_start` *symbol* to locate `results` — a coincidence of the current GCC/ld
+  layout rather than a guarantee. Since the templates are PIEs, every segment is
+  relocated by one load bias, so a single number suffices: read `AT_ENTRY` from
+  `/proc/[pid]/auxv` (a fixed-layout binary file) at the post-exec stop and
+  compute `bias = AT_ENTRY - ehdr.e_entry`; then `main = bias + st_value(main)`
+  and `results = bias + st_value(results)`. This drops `start_code`,
+  `start_data`, and the `data_start` symbol lookup in `elf_layout.cc`. Linking
+  the templates `-no-pie` (13.2) makes the bias zero and removes the lookup
+  entirely.
+
+### 13.2 Execution-environment determinism and safety
+
+The README attributes divergence between same-seed runs to "non-deterministic
+programs". Two cheap, async-signal-safe calls in the `vfork` child (before the
+seccomp filter, so nothing new needs allowlisting) remove the two most common
+sources of that non-determinism:
+
+- **Disable ASLR for the child:** `personality(ADDR_NO_RANDOMIZE)` before
+  `execveat`. The templates are PIEs (`readelf -h` shows `DYN`) and are
+  dynamically linked (`ldd` shows `libc.so.6`, `ld-linux`, and the vDSO), so
+  today every execution places the text, data, stack, heap, `ld.so`, libc and
+  vDSO at different addresses. Any evolved instruction that reads a pointer
+  (argv/envp/auxv on the stack, the return address, a GOT entry, `%rsp` itself)
+  and lets it influence `results` is non-deterministic across runs purely
+  because of ASLR. The tests already assume fixed offsets; making addresses
+  fixed makes *values* reproducible too.
+- **Make `rdtsc` fault:** `prctl(PR_SET_TSC, PR_TSC_SIGSEGV)`. The `rdtsc`
+  encoding is two bytes (`0f 31`) and is easily reached by a bit flip; a program
+  that latches onto it gets a different value every run. With this setting the
+  instruction raises `SIGSEGV` and the program is terminated like any other
+  invalid one. (`rdrand`/`rdseed` cannot be disabled from user space; they
+  remain a small residual source. The 16 random bytes at `AT_RANDOM` on the
+  stack are another; they are harmless unless evolved code reads the stack.)
+- **`PTRACE_O_EXITKILL`:** set it (via `PTRACE_SETOPTIONS`) at the first stop.
+  If the evolver dies — and `myfail` calls `exit()` from a worker thread — every
+  traced child is currently *detached and resumed*, i.e. evolved code keeps
+  running outside the tracer's control (still under seccomp and the itimers,
+  but no longer terminated at its first syscall). `EXITKILL` makes the kernel
+  `SIGKILL` all tracees when the tracer exits. While there, consider
+  `PTRACE_O_TRACEEXEC` so the post-exec stop is an unambiguous
+  `PTRACE_EVENT_EXEC` rather than a generic `SIGTRAP`, and
+  `PTRACE_O_TRACESYSGOOD` so syscall stops are distinguishable from a genuine
+  `SIGTRAP` (e.g. an evolved `int3`).
+- **Static, non-PIE, libc-free templates.** The template C files use no libc at
+  all (globals plus inline asm and intrinsics), yet each execution pays for
+  `ld.so`, libc relocation and initialization — which is where the entire
+  seccomp allowlist beyond `execveat`/`exit_group` comes from (`brk`, `mmap`,
+  `openat`, `pread64`, `mprotect`, `getrandom`, ...). Building the templates
+  with `-static -no-pie -nostartfiles -fno-stack-protector` and a three-line
+  `_start` (align the stack, `call main`, `exit_group`) gives: (a) a
+  seccomp allowlist of two syscalls, (b) an `exec` that maps a single tiny
+  segment pair instead of two shared objects (13.3), (c) fixed addresses without
+  `personality`, (d) no libc code in the address space for evolved jumps to land
+  in, and (e) no `/proc` parsing (13.1). Keep the `results[0] = 20` control and
+  the `main` symbol; nothing in `elf_layout.cc` depends on dynamic linking. Note
+  that Gentoo's GCC enables `-fstack-protector` by default and that the canary
+  lives in TLS (`%fs:0x28`), which requires libc's TLS setup — hence the
+  explicit `-fno-stack-protector` (the current `main`s happen not to reference
+  the canary, verified via `objdump`, but a future template with local arrays
+  would).
+
+### 13.3 Throughput: where the time actually goes
+
+Numbers from the logs in the repo root (8 cores):
+
+| Run | Generations | Wall | User | Sys |
+| --- | --: | --: | --: | --: |
+| `simple_small_guess_474741_rs_4130` (10 evals/program) | 1,000 | 5m33s | 18m58s | 17m54s |
+
+That is 2,000,000 executions in 333 s, ≈ 6,000 executions/s, ≈ 1.3 ms of CPU
+per execution, and **sys ≈ user** — i.e. roughly half of all CPU is kernel time
+in `execveat`, page-fault handling for `ld.so`/libc, and ptrace round trips,
+not evolved code (whose intrinsic cost is microseconds). Consequences and
+recommendations, in order of payoff per effort:
+
+- **Cut the CPU timeout by an order of magnitude and expose it as a flag.** In
+  `complex_large_digits_rs_13146.log`, single generations report up to 17,648
+  `SIGPROF` timeouts out of 40,000 executions (44%), and several generations
+  exceed 4,000. At the 50 ms CPU budget, one such generation burns ~880 CPU
+  seconds *in timeouts alone* (~110 s wall on 8 cores) while the useful work in
+  that generation is a few seconds. A legitimate template runs in well under a
+  millisecond; a budget of ~5 ms (one or two scheduler ticks at
+  `CONFIG_HZ=250`, the practical floor for an itimer) keeps the same safety
+  posture and makes runaway-heavy generations ~10× cheaper. Report the timeout
+  *fraction* per generation (13.7) so the effect is visible.
+- **Do not evaluate deterministic tasks ten times.** `000_guess_value` and
+  `001_copy_value` default to `evaluations_per_program = 10`, but for
+  `guess_value` `ResetInputs()` is a no-op, so nine of ten executions of a
+  deterministic program are wasted. Evaluate once, and re-execute only
+  candidates that would become parents (or the champion) to confirm they are
+  deterministic — a racing / successive-halving scheme: cheap screen on 1
+  evaluation, full `evaluations_per_program` only for the top fraction. For MNIST
+  the same idea applies with a small sample (e.g. 20 images) as the screen and
+  the full 200 for finalists; most of a generation's 40,000 executions are spent
+  on programs that a handful of samples already show are hopeless.
+- **Flatten the evaluation loop.** `EvaluatePrograms` runs
+  `evaluations_per_program` sequential rounds, each a `std::execution::par`
+  `for_each` over 200 programs with a barrier between rounds — 200 barriers per
+  MNIST generation, and every round waits for its slowest (timed-out) member.
+  Pre-draw the generation's input schedule (a vector of `evaluations_per_program`
+  input sets), then parallelize over all (program × evaluation) pairs at once.
+  Pre-drawing also gives every program the same inputs (as now), makes the
+  schedule serializable for checkpoints (§10.1), and is the natural place to
+  add a fixed held-out set for champion validation (§12.3).
+- **Build with `-c opt` (after fixing the `assert`s in 13.1).** The run
+  scripts use the default `fastbuild`. Mutators copy the full `main` vector two
+  or three times per offspring and the parent-side monitor is C++ that benefits
+  from optimization; measure before assuming, but there is no reason to run
+  research workloads unoptimized. Add `--config=opt` to `.bazelrc`.
+- **Zygote fork instead of `execveat` per evaluation.** The larger step beyond
+  the worker pool in §8: exec each template *once* into a "zygote" that is
+  stopped at the `main` breakpoint, then for every evaluation `fork()` the
+  zygote (copy-on-write, no exec, no loader), write the offspring's `main`
+  bytes and `inputs` into the fork with `process_vm_writev`/`PTRACE_POKETEXT`,
+  and continue it under `PTRACE_SYSCALL`. Per-evaluation kernel cost drops
+  from "exec + map two shared objects + relocate" to "fork a ~50 KB process +
+  two `process_vm_writev` calls". The static-template change in 13.2 gets a
+  large part of this win with far less code, so do that first and measure.
+
+### 13.4 RIP-relative addressing makes byte-offset recombination destructive
+
+This is the most important representation-level observation in this review.
+`complex_large`'s `main` contains 366 `(%rip)`-relative memory operands and 41
+relative jumps (`objdump`); the smaller templates are similar in proportion.
+Both `MutatorRecombineRandom` and `MutatorRecombinePlainElf` copy a byte range
+from offset `q` in the source into offset `p ≠ q` in the destination. Every
+RIP-relative displacement and every relative jump inside the copied range is
+now *off by `p − q` bytes*: a `mov inputs+0x40(%rip), %eax` copied 37 bytes
+later reads `inputs+0x40−37`, which is a misaligned address 9 ints earlier —
+still inside `.data` (the arrays are contiguous and large), so the instruction
+does not fault, it just silently reads or writes the wrong variable. Likewise a
+`jmp .+127` moved by a few bytes lands mid-instruction. In other words the
+current crossover almost never transplants *semantics*; it transplants bytes
+whose meaning depends on where they sit.
+
+Because every program in the population descends from the same template and all
+mutations preserve length, the population is *positionally aligned*: offset `k`
+in one program corresponds to offset `k` in every other. That makes the fix
+nearly free:
+
+- **Homologous (same-offset) crossover:** copy bytes `[q, q+len)` of parent 2
+  into `[q, q+len)` of parent 1. RIP-relative operands and relative jumps keep
+  their meaning as long as the instruction stays at its offset. This is
+  standard one-/two-point crossover on a fixed-length genome and is exactly
+  the "homologous crossover" of Nordin et al. (§6.1) that the README cites but
+  does not implement. Keep the non-homologous variant as a separate operator
+  so the two can be compared.
+- **Same for `MutatorRecombinePlainElf`:** re-inserting template bytes at their
+  *original* offsets is a "repair" operator that restores valid, correctly
+  addressed vocabulary; at a random offset it is mostly noise.
+- **Displacement-aware point mutation:** a bit flip inside a 4-byte
+  RIP-relative displacement moves the referenced address by a power of two
+  bytes — most single flips produce a *misaligned* int address (bits 0–1) or
+  jump to a different array (high bits). Flipping only bits ≥ 2 of a
+  displacement (once instruction boundaries are known, §4.2 / 13.5) keeps the
+  operand 4-byte aligned and turns "which global does this instruction touch"
+  into a smooth knob. The same holds for the immediates in `complex_large`
+  Section 6.
+
+Expect this to change results materially for the copy/sum/MNIST tasks, where
+"read the right input, write the right result" is precisely a matter of getting
+displacements right.
+
+### 13.5 Mutation operators that respect the byte stream
+
+- **Instruction-boundary map.** All operators in §4.2, 13.4 and below need to
+  know where instructions start. A length decoder for the current 3–7 KB
+  `main` costs microseconds; use Zydis (MIT, C, a single Bazel `cc_library`)
+  or Capstone, or a minimal x86-64 length-decoder (~300 lines, prefixes +
+  opcode maps + ModRM/SIB + immediates). Decode from `main`'s start, stop at
+  the first undecodable byte, and treat everything after as "already broken"
+  (a useful statistic in itself, 13.7). Length statistics for the current
+  templates show why this matters: `simple_small` is 79% one-byte `nop`s
+  (1,459 of 1,834 instructions) with the rest almost all 3- or 7-byte;
+  `complex_large` averages 3.06 bytes with 20% of instructions ≥ 7 bytes
+  (VEX-prefixed AVX2 and `disp32` memory operands) — long encodings are exactly
+  the ones a random flip turns into a frame shift.
+- **Boundary-aligned recombination** (§4.4) becomes a two-line change once the
+  map exists: snap `q` and `q+len` to instruction starts in both parents.
+- **NOP-sled-consuming insert/delete.** No current operator changes the
+  *number* of instructions; everything is an in-place overwrite. Add an
+  operator that inserts `k` bytes (a whole instruction copied from a parent or
+  the template) at an instruction boundary and deletes `k` `nop`s from the
+  nearest sled after it (or the reverse), so all code *after* the sled keeps
+  its offset and the RIP-relative operands there stay valid. The `NOPS`
+  macro already provides the sleds; this operator is what they are for.
+- **Whole-instruction substitution.** Replace one decoded instruction with a
+  random instruction *of the same length* drawn from the template's own
+  instruction multiset (the "vocabulary" of §4.1). Same-length substitution is
+  the least disruptive way to change an opcode.
+- **Rate control.** All mutators apply exactly one edit. Add a configurable
+  per-offspring edit count (Poisson with mean ~1–3) and log which operator
+  produced each parent-becoming offspring, so operator *effectiveness* can be
+  measured and the composite's uniform weights (`MutatorCompositeRandom`)
+  replaced by adaptive ones (e.g. multi-armed bandit over operators).
+- **Drop division from the vocabulary, or guard it.** `complex_large` has four
+  `idiv`s. Division raises `SIGFPE` on a zero divisor (and on `INT_MIN / −1`),
+  and MNIST inputs are *mostly zero* (background pixels), so any evolved path
+  that divides by an input dies on most samples. Division is "fragile
+  vocabulary" with little benefit for the current tasks.
+
+### 13.6 MNIST: scoring and input representation
+
+- **The diversity term dominates correctness by four orders of magnitude.**
+  `ScoreResultsHistory` awards up to 11.999 × 10¹⁵ for merely *emitting*
+  distinct in-range values, while the correctness component of `Score` is at
+  most 200 × 10⁹ per generation. Lexicographically, "outputs all ten digits at
+  random" beats "outputs the right digit 50% of the time using five distinct
+  values". The logs show exactly this: `complex_large_digits_rs_13144` climbs to
+  11.995 × 10¹⁵ (diversity saturated) by generation ~3,000, with the
+  correctness digits in the low part of the score still near chance. The
+  mechanism was meant to fight the broken-clock problem, but as a *dominant*
+  term it optimizes the wrong thing.
+- **Replace it with a measure that rewards diversity only when it is
+  informative.** Two principled options, both computable from the per-generation
+  results history the evolver already collects:
+  - *Balanced accuracy* (mean per-class recall). A constant output scores
+    0.1; ten correct classes score 1.0; diversity is rewarded exactly to the
+    extent it is correct.
+  - *Mutual information* `I(prediction; label)` over the generation's
+    (prediction, label) pairs, with a *post-hoc relabeling*: let evolution
+    discover any mapping from images to output values, and fix the assignment
+    from output values to digits in the scorer (argmax of the confusion matrix,
+    or a Hungarian assignment). The evolved program then only needs to
+    *separate* classes, not to know their names — a strictly easier problem —
+    and the constant/random-output programs score 0 automatically. Report both
+    the raw and the relabeled accuracy.
+- **Give evolution a representation it can use.** `LoadSample` packs the 784
+  pixel bytes four-per-`int` into 196 ints, so an evolved instruction reading
+  `inputs[k]` sees four pixels smeared across one word; extracting one pixel
+  needs a shift-and-mask sequence the mutators must assemble by chance
+  (Section 1 of `complex_large` includes such sequences for this reason).
+  Offer, as flags, (a) one int per pixel (784 ints fit `complex_large`'s 801),
+  (b) 14×14 or 7×7 mean-pooled images (196 / 49 ints), and (c) binarized pixels
+  (0/1). A 7×7 binary MNIST is a far smaller search problem and is the natural
+  next rung after `sum_two`; the raw 28×28 result can remain the headline.
+- **Binary and few-class stepping stones** (§5.3): 0-vs-1, then 0/1/2, with
+  balanced sampling per class so the scorer's batch is not dominated by the
+  majority class.
+- **Use the test set that is already in the repo.** `t10k-*` files are present
+  in `examples/100_mnist_digits/data` but `validate.cc` scores champions on the
+  *training* images. Validate on `t10k`, and use a fixed training subset for
+  the §12.3 champion check.
+
+### 13.7 Instrument the "validity tax" directly
+
+The README's central question is how much random machine-code edits cost in
+invalid programs, yet the only per-generation diagnostics are best score, the
+`rip` mode, and timeout counts. Add, per generation (to the machine-readable
+record of §8 and the status line):
+
+- **Termination-reason histogram:** `SIGSEGV`, `SIGILL`, `SIGFPE`, `SIGBUS`,
+  `SIGTRAP` (evolved `int3`), `SIGPROF`/`SIGALRM`, and "syscall-stop" split by
+  syscall number (`exit_group` from falling off the end of `main` vs. anything
+  else). The fraction reaching `exit_group` *is* the viability rate.
+- **Offspring viability by operator:** the same histogram keyed by which
+  mutator created the offspring (13.5), plus "offspring became a parent" — the
+  data needed to tune operator weights.
+- **Decodable-prefix length** (13.5): how many bytes of `main` still decode
+  from the start; its population distribution shows how fast code "erodes".
+- **Executed-region trace for champions:** a diagnostic `ExecuteMode` using
+  `PTRACE_SINGLESTEP` that records the sequence of `rip` offsets. This
+  separates effective code from introns (Brameier & Banzhaf, §6.2), shows
+  *how* an evolved `copy_value` program actually copies (worth a README
+  figure), and enables intron-aware operators (mutate only executed bytes, or
+  only unexecuted ones for neutral drift). Pair it with an `objdump`-style
+  disassembly of the champion's executed path.
+- **Population diversity:** mean pairwise Hamming distance of `main` (sampled),
+  and the count of distinct genomes. Convergence to one `rip` mode with count
+  >150 of 200, as seen in the logs, suggests diversity collapses well before
+  the score stalls.
+- **Per-execution instruction count** via `perf_event_open`
+  (`PERF_COUNT_HW_INSTRUCTIONS`, enabled at the `main` breakpoint, read at the
+  terminating stop). This is a deterministic cost measure independent of
+  machine load, usable as a secondary objective (prefer shorter programs) and,
+  with a sample period and `PERF_EVENT_IOC_REFRESH`, as a deterministic
+  *instruction budget* replacing the time-based timeout for reproducible runs.
+
+### 13.8 Search-strategy ideas specific to this setting
+
+- **Island model on the available cores.** Each generation is embarrassingly
+  parallel but generations are serialized; the `run_*_loop.sh` scripts run
+  seeds *sequentially*. A trivial island model — N independent populations
+  with different seeds, occasional migration of champions — uses the same
+  budget and is known to help exactly the premature-convergence pattern in
+  13.7. It composes with the §10.2 program library.
+- **MAP-Elites with cheap, meaningful descriptors** (concretizing §6.3): the
+  termination reason, the number of `results` slots changed, the last `rip`
+  offset bucket, and the decodable-prefix length are all already observable per
+  execution and make a natural behavior space. Keeping one elite per cell
+  preserves the "changes results[5] but crashes" and "runs to exit but changes
+  nothing" lineages that pure score-based selection discards.
+- **Neutral-drift budget.** With tie-breaking fixed (§12.2), run the
+  all-`nop` experiment again but *measure* neutral drift: how many silent bit
+  flips accumulate in never-executed regions per generation. If drift is
+  present but the all-`nop` start still stalls, the bottleneck is the missing
+  vocabulary (§4.1), not selection.
+- **Seed with a solved neighbor** (§10.2 in practice): start `double_value`
+  from a `copy_value` champion and `sum_two` from a `double_value` champion;
+  report generations-to-solution against a template start. This is the
+  cheapest possible transfer-learning experiment and directly tests whether
+  evolved programs are reusable building blocks.
+
+### 13.9 Build, test and documentation hygiene
+
+- **Undeclared system prerequisites.** `-lseccomp` and `-ltbb` are bare
+  `linkopts`; the AVX2 template needs a CPU with AVX2 or it `SIGILL`s before
+  evolution starts; `program_test` encodes the current GCC/glibc syscall
+  sequence. Document the prerequisites (Linux x86-64, `libseccomp`, TBB, a
+  ptrace-permitting environment — e.g. `kernel.yama.ptrace_scope` and container
+  seccomp profiles) in the README, and make the AVX2 dependency a build/runtime
+  check rather than a surprise. Longer term, fetch `libseccomp` and TBB as
+  Bazel modules so the build is hermetic.
+- **Stale paths in the example READMEs.** The evolved-ELF path is documented as
+  `.../main.runfiles/__main__/`; with bzlmod the directory is `_main`
+  (verified on this checkout). Better: write outputs to a `--output_dir`
+  outside the runfiles tree (pairs with the `results/` directory of §8) so users
+  never need the Bazel-internal path.
+- **Missing READMEs.** `002_double_value` and `010_sum_two` have no README and
+  are unlinked in the top-level table; the copy/guess READMEs also still show
+  the pre-2023 results initializer `{10, 0, 0, ...}` in the quoted `--help`
+  output.
+- **Results provenance.** The README tables date from May 2023 and were
+  produced by code that has since changed in ways that affect outcomes
+  (φ selection and tie-breaking regressed and were reinstated, `int3` detection,
+  CPU-time timeout, positive-score preference). Re-run the tables with the
+  current code, and stamp each table with the commit hash and the exact flags
+  (the §8 run record makes this automatic).
+- **Repo root.** `google4db608c70141c63b.html` (a site-verification file) and
+  ~130 `*.log` files sit in the root; the logs are ignored but still shipped
+  around by every tool that lists the tree. Move them under `results/`.
+- **Test brittleness to toolchain.** `program_test` asserts `last_syscall ==
+  231` and exact stop counts; that is fine, but the static-template change in
+  13.2 makes these assertions toolchain-independent and is another reason to
+  do it. Add a test that a template's `main` decodes cleanly with the 13.5
+  length decoder and that every `jmp .+N` lands on an instruction boundary
+  (this was hand-verified with `objdump` for `complex_large` and has already
+  been wrong once in the intermediate templates, per `git log`).
+- **`gen_() % n` modulo bias** is negligible at these `n`, but if the RNG is
+  ever replaced with `std::uniform_int_distribution`, note that `RandomMock`
+  only intercepts `operator()` — the mock would stop controlling outcomes.
+
+### 13.10 Roadmap amendments
+
+Insert into §11 as follows:
+
+- **Before item 3:** fix the `mutator_recombine_plain_elf_test` `srcs` typo and
+  the `assert`-based validation (13.1); add `personality(ADDR_NO_RANDOMIZE)`,
+  `PR_SET_TSC`, and `PTRACE_O_EXITKILL` to the child/monitor (13.2); lower the
+  CPU timeout and expose it as a flag; evaluate deterministic tasks once (13.3).
+  All are small and each removes a real source of noise or waste.
+- **New item 3b (high leverage, low effort):** homologous crossover and
+  same-offset template repair (13.4), then an instruction-length decoder and
+  boundary-aligned / sled-consuming operators (13.5). This likely changes the
+  headline numbers more than any infrastructure work.
+- **Alongside item 4:** the termination-reason and per-operator viability
+  instrumentation (13.7), so the "validity tax" is a measured quantity before
+  and after 3b.
+- **Before item 8 (MNIST QD work):** replace the diversity term with balanced
+  accuracy or relabeled mutual information, and add the pooled/binarized input
+  variants (13.6). Without this, MNIST results mostly measure the diversity hack.
+- **Static, libc-free templates** (13.2) can be done at any point and simplify
+  items 3, 6 and 12.4; do it before the zygote/worker-pool work so that work is
+  measured against a cheap baseline.
