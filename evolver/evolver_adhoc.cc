@@ -27,7 +27,8 @@ EvolverAdHoc::EvolverAdHoc(std::string elf_filename, int mu, int phi,
                            Random &gen, int evaluations_per_program,
                            int max_generations, bool score_results_history,
                            std::string output_filename_prefix,
-                           bool initialize_programs_to_all_nops)
+                           bool initialize_programs_to_all_nops,
+                           long cpu_timeout_usec, long wall_timeout_usec)
     : mu_(mu), phi_(phi), lambda_(lambda), scorer_(scorer), mutator_(mutator),
       gen_(gen), evaluations_per_program_(evaluations_per_program),
       max_generations_(max_generations),
@@ -37,7 +38,8 @@ EvolverAdHoc::EvolverAdHoc(std::string elf_filename, int mu, int phi,
                "Expected 0 <= phi <= mu, got mu = " + std::to_string(mu_) +
                    ", phi = " + std::to_string(phi_) + ".");
   for (int i = 0; i < mu_ + lambda_; ++i) {
-    auto program = Program::Create(elf_filename);
+    auto program =
+        Program::Create(elf_filename, cpu_timeout_usec, wall_timeout_usec);
     if (initialize_programs_to_all_nops) {
       program->SetElfCodeToAllNops();
     }

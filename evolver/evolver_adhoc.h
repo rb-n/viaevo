@@ -27,12 +27,17 @@ namespace viaevo {
 // Computation can be added as additional Evolver subclasses.
 class EvolverAdHoc : public Evolver {
 public:
+  // cpu_timeout_usec / wall_timeout_usec bound the execution of each program in
+  // the population and are forwarded to each Program's Sandbox (see Sandbox for
+  // what each bounds and for the defaults).
   EvolverAdHoc(std::string elf_filename, int mu, int phi, int lambda,
                Scorer &scorer, Mutator &mutator, Random &gen,
                int evaluations_per_program, int max_generations,
                bool score_results_history = false,
                std::string output_filename_prefix = "",
-               bool initialize_programs_to_all_nops = false);
+               bool initialize_programs_to_all_nops = false,
+               long cpu_timeout_usec = Sandbox::kDefaultCpuTimeoutUsec,
+               long wall_timeout_usec = Sandbox::kDefaultWallTimeoutUsec);
   // Selects mu_ parents by bringing them to the front of programs_: the top
   // (mu_ - phi_) programs by score (ties broken randomly via a pre-sort
   // shuffle), plus phi_ programs sampled at random from the rest of the

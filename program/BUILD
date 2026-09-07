@@ -60,6 +60,7 @@ cc_test(
     size = "small",
     srcs = ["sandbox_test.cc"],
     data = [
+        "//elfs:inf_loop",
         "//elfs:simple_small",
     ],
     deps = [

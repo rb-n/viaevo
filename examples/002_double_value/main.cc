@@ -54,6 +54,15 @@ ABSL_FLAG(uint32_t, random_seed, 1,
 ABSL_FLAG(bool, initialize_programs_to_all_nops, false,
           "set all instructions in the evolvable code of the template ELF "
           "executable to nop prior to starting the evolution");
+ABSL_FLAG(int32_t, cpu_timeout_usec, 10000,
+          "CPU-time budget in microseconds for each execution of an evolved "
+          "program (ITIMER_PROF/SIGPROF), the primary bound on runaway or "
+          "looping evolved code; a legitimate template runs main in well under "
+          "a millisecond");
+ABSL_FLAG(int32_t, wall_timeout_usec, 500000,
+          "wall-clock backstop in microseconds for each execution of an "
+          "evolved program (ITIMER_REAL/SIGALRM), for a process that blocks "
+          "without consuming CPU; should comfortably exceed cpu_timeout_usec");
 ABSL_FLAG(
     int32_t, num_value_copies_in_inputs, 10,
     "number of copies of the value to be doubled in inputs (the first n items "
@@ -84,6 +93,8 @@ int main(int argc, char **argv) {
   unsigned int random_seed = absl::GetFlag(FLAGS_random_seed);
   bool initialize_programs_to_all_nops =
       absl::GetFlag(FLAGS_initialize_programs_to_all_nops);
+  int cpu_timeout_usec = absl::GetFlag(FLAGS_cpu_timeout_usec);
+  int wall_timeout_usec = absl::GetFlag(FLAGS_wall_timeout_usec);
   int num_value_copies_in_inputs =
       absl::GetFlag(FLAGS_num_value_copies_in_inputs);
 
@@ -99,6 +110,8 @@ int main(int argc, char **argv) {
   std::cout << "# random_seed: " << random_seed << "\n";
   std::cout << "# initialize_programs_to_all_nops: " << std::boolalpha
             << initialize_programs_to_all_nops << "\n";
+  std::cout << "# cpu_timeout_usec: " << cpu_timeout_usec << "\n";
+  std::cout << "# wall_timeout_usec: " << wall_timeout_usec << "\n";
   std::cout << "# num_value_copies_in_inputs: " << num_value_copies_in_inputs
             << "\n";
   std::cout << std::flush;
@@ -124,7 +137,8 @@ int main(int argc, char **argv) {
   viaevo::EvolverAdHoc evolver(
       elf_filename, mu, phi, lambda, scorer, mutator_composite, gen,
       evaluations_per_program, max_generations, score_results_history,
-      output_filename_prefix, initialize_programs_to_all_nops);
+      output_filename_prefix, initialize_programs_to_all_nops,
+      cpu_timeout_usec, wall_timeout_usec);
   evolver.Run();
 
   return 0;

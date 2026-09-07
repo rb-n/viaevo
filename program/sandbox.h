@@ -80,14 +80,29 @@ public:
     kRunToCompletion,
   };
 
+  // Default CPU-time budget for the evolved code, in microseconds.
+  //
+  // A legitimate template runs main in well under a millisecond, so this is
+  // pure headroom for runaway code. It used to be 50 ms, which dominated the
+  // cost of timeout-heavy generations: a single generation in
+  // complex_large_digits_rs_13146.log timed out on 17,648 of 40,000 executions
+  // (44%), burning ~880 CPU seconds in timeouts alone against a few seconds of
+  // useful work. 10 ms keeps the same safety posture - it is still ~2.5
+  // scheduler ticks at CONFIG_HZ=250, so an itimer can express it reliably -
+  // and makes such generations ~5x cheaper (RECOMMENDATIONS.md 13.3).
+  static constexpr long kDefaultCpuTimeoutUsec = 10000;
+  // Default wall-clock backstop, in microseconds. Left at 500 ms: it exists
+  // only for a child that blocks without consuming CPU, so it should stay well
+  // clear of the CPU budget.
+  static constexpr long kDefaultWallTimeoutUsec = 500000;
+
   // cpu_timeout_usec is the CPU-time (ITIMER_PROF -> SIGPROF) budget given to
-  // the child - the primary bound on runaway/looping evolved code (default
-  // 50 ms). wall_timeout_usec is the wall-clock (ITIMER_REAL -> SIGALRM)
-  // backstop for a child that blocks without consuming CPU (default 500 ms); it
-  // must comfortably exceed the CPU budget so it only fires when the CPU timer
-  // cannot.
-  explicit Sandbox(long cpu_timeout_usec = 50000,
-                   long wall_timeout_usec = 500000)
+  // the child - the primary bound on runaway/looping evolved code.
+  // wall_timeout_usec is the wall-clock (ITIMER_REAL -> SIGALRM) backstop for a
+  // child that blocks without consuming CPU; it must comfortably exceed the CPU
+  // budget so it only fires when the CPU timer cannot.
+  explicit Sandbox(long cpu_timeout_usec = kDefaultCpuTimeoutUsec,
+                   long wall_timeout_usec = kDefaultWallTimeoutUsec)
       : cpu_timeout_usec_(cpu_timeout_usec),
         wall_timeout_usec_(wall_timeout_usec) {}
 

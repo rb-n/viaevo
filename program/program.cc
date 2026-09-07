@@ -9,8 +9,11 @@
 
 namespace viaevo {
 
-std::shared_ptr<Program> Program::Create(const std::string &filename) {
-  return std::make_shared<Program>(filename.c_str());
+std::shared_ptr<Program> Program::Create(const std::string &filename,
+                                        long cpu_timeout_usec,
+                                        long wall_timeout_usec) {
+  return std::make_shared<Program>(filename.c_str(), cpu_timeout_usec,
+                                   wall_timeout_usec);
 }
 
 int Program::Execute(ExecuteMode mode) {

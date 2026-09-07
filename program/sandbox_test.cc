@@ -7,9 +7,22 @@
 
 #include <gtest/gtest.h>
 
+#include <sys/resource.h>
+#include <sys/time.h>
+
 #include "elf_image.h"
 
 namespace {
+
+// Total CPU time (user + sys) consumed by reaped child processes, in
+// microseconds. The Sandbox waits for and reaps its child, so the delta across
+// an Execute call is that execution's CPU consumption.
+long ChildCpuUsec() {
+  struct rusage usage;
+  getrusage(RUSAGE_CHILDREN, &usage);
+  return (long)usage.ru_utime.tv_sec * 1000000 + usage.ru_utime.tv_usec +
+         (long)usage.ru_stime.tv_sec * 1000000 + usage.ru_stime.tv_usec;
+}
 
 // Sandbox is exercised directly here (without Program) to confirm the execution
 // machinery is usable and testable on its own. The observed signal values (5 =
@@ -73,6 +86,40 @@ TEST(SandboxTest, FreshResultHasSentinels) {
   EXPECT_EQ(result.last_stop_signal, -1);
   EXPECT_EQ(result.ptrace_stops, 0);
   EXPECT_TRUE(result.last_results.empty());
+}
+
+// The CPU budget is the primary bound on runaway evolved code and is now
+// configurable (and reported) rather than hardcoded. Because ITIMER_PROF
+// bounds CPU rather than wall-clock time, the assertion below holds regardless
+// of how loaded the machine is (RECOMMENDATIONS.md 12.7, 13.3).
+TEST(SandboxTest, CpuTimeoutIsConfigurableAndEnforced) {
+  EXPECT_EQ(viaevo::Sandbox().cpu_timeout_usec(),
+            viaevo::Sandbox::kDefaultCpuTimeoutUsec);
+  EXPECT_EQ(viaevo::Sandbox().wall_timeout_usec(),
+            viaevo::Sandbox::kDefaultWallTimeoutUsec);
+  EXPECT_EQ(viaevo::Sandbox::kDefaultCpuTimeoutUsec, 10000)
+      << "the default CPU budget is 10 ms";
+
+  viaevo::ElfImage image("elfs/inf_loop");
+  viaevo::Sandbox sandbox(/*cpu_timeout_usec=*/5000);
+  EXPECT_EQ(sandbox.cpu_timeout_usec(), 5000);
+
+  long before = ChildCpuUsec();
+  viaevo::ExecutionResult result = sandbox.Execute(
+      image, viaevo::Sandbox::ExecuteMode::kTerminateInEvolvedCode);
+  long consumed = ChildCpuUsec() - before;
+
+  EXPECT_EQ(result.last_stop_signal, 27)
+      << "a busy loop should trip the CPU-time timeout (SIGPROF)";
+  EXPECT_EQ(result.last_term_signal, 9) << "expected SIGKILL";
+
+  // Budget plus headroom for itimer granularity (4 ms at CONFIG_HZ=250) and
+  // the loader/libc startup that also counts against the budget. The point is
+  // that the flag is honored: this stays far below the 50 ms that used to be
+  // spent on every runaway execution.
+  EXPECT_LT(consumed, 25000)
+      << "inf_loop consumed " << consumed
+      << " usec of child CPU under a 5000 usec budget";
 }
 
 } // namespace

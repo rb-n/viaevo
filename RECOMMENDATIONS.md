@@ -203,9 +203,10 @@ reading, and code mutation accessors. Consider splitting:
   the int3-breakpoint-driven `ptrace` monitor loop, and the wall-clock timeout
   (`program/sandbox.{h,cc}`). `Sandbox::Execute(const ElfImage&, ExecuteMode)`
   returns an `ExecutionResult` (the `last_*` observations + `ptrace_stops`);
-  it holds no per-execution state (`Execute` is `const`) and the timeout is now
-  a configurable member (`timeout_usec`, default 50 ms) rather than a hardcoded
-  literal. `ExecuteMode` moved to `Sandbox` (re-exported as `Program::ExecuteMode`).
+  it holds no per-execution state (`Execute` is `const`) and the timeouts are
+  now configurable members (`cpu_timeout_usec`, default 10 ms;
+  `wall_timeout_usec`, default 500 ms) rather than hardcoded literals, settable
+  per run via CLI flags (13.3). `ExecuteMode` moved to `Sandbox` (re-exported as `Program::ExecuteMode`).
   `Program` now holds an `ElfImage` + a `Sandbox`, and `Program::Execute` just
   delegates and caches the result — `program.cc` shrank from ~500 lines to ~25.
   `Sandbox` is unit-tested directly, without `Program`, in
@@ -944,6 +945,8 @@ while removing the load-induced false kills. Caveats:
 Lower-effort interim option if the scorer ripple is undesirable now: keep the
 wall-clock timer but expose `timeout_usec_` as a proper CLI flag (there is an
 existing "use a command line flag" TODO) so it can be tuned per machine.
+**[DONE]** — superseded: both timers are implemented, and both are now CLI
+flags (`--cpu_timeout_usec`, `--wall_timeout_usec`; see 13.3).
 
 ---
 
@@ -1107,16 +1110,35 @@ in `execveat`, page-fault handling for `ld.so`/libc, and ptrace round trips,
 not evolved code (whose intrinsic cost is microseconds). Consequences and
 recommendations, in order of payoff per effort:
 
-- **Cut the CPU timeout by an order of magnitude and expose it as a flag.** In
-  `complex_large_digits_rs_13146.log`, single generations report up to 17,648
-  `SIGPROF` timeouts out of 40,000 executions (44%), and several generations
-  exceed 4,000. At the 50 ms CPU budget, one such generation burns ~880 CPU
-  seconds *in timeouts alone* (~110 s wall on 8 cores) while the useful work in
-  that generation is a few seconds. A legitimate template runs in well under a
-  millisecond; a budget of ~5 ms (one or two scheduler ticks at
-  `CONFIG_HZ=250`, the practical floor for an itimer) keeps the same safety
-  posture and makes runaway-heavy generations ~10× cheaper. Report the timeout
-  *fraction* per generation (13.7) so the effect is visible.
+- **[DONE]** **Cut the CPU timeout by an order of magnitude and expose it as a
+  flag.** In `complex_large_digits_rs_13146.log`, single generations report up
+  to 17,648 `SIGPROF` timeouts out of 40,000 executions (44%), and several
+  generations exceed 4,000. At the 50 ms CPU budget, one such generation burns
+  ~880 CPU seconds *in timeouts alone* (~110 s wall on 8 cores) while the useful
+  work in that generation is a few seconds. A legitimate template runs in well
+  under a millisecond.
+
+  The default CPU budget is now **10 ms**
+  (`Sandbox::kDefaultCpuTimeoutUsec`), a 5× cut that keeps a wide margin over
+  both a legitimate run and the itimer's practical floor (10 ms is 2.5 ticks at
+  `CONFIG_HZ=250`). The wall-clock backstop stays at 500 ms
+  (`kDefaultWallTimeoutUsec`). Both are plumbed
+  `Sandbox` → `Program::Create` → `EvolverAdHoc` → the `--cpu_timeout_usec` /
+  `--wall_timeout_usec` CLI flags on the four flag-driven example mains, and
+  both are echoed into the run header alongside the other run parameters.
+  `SandboxTest.CpuTimeoutIsConfigurableAndEnforced` runs `elfs/inf_loop` under
+  a 5 ms budget and asserts, via `getrusage(RUSAGE_CHILDREN)`, that the child's
+  *CPU* consumption stays inside it — an assertion that is insensitive to
+  machine load, unlike a wall-clock one.
+
+  A 60-generation `complex_large` run (`--random_seed=13146`, µ=20, λ=40,
+  3 evaluations) reached an identical final state at both settings (best score
+  147, same `rip` distribution) while wall time fell from 4.3 s to 3.0 s. That
+  is a single indicative run, not a benchmark; the timeout *fraction* per
+  generation (13.7) is still the measurement that would make the effect
+  properly visible. Going below 10 ms (the note above suggested ~5 ms) should
+  wait for that instrumentation, so any false timeouts are visible rather than
+  inferred.
 - **Do not evaluate deterministic tasks ten times.** `000_guess_value` and
   `001_copy_value` default to `evaluations_per_program = 10`, but for
   `guess_value` `ResetInputs()` is a no-op, so nine of ten executions of a
@@ -1384,8 +1406,9 @@ Insert into §11 as follows:
 
 - **Before item 3:** fix the `mutator_recombine_plain_elf_test` `srcs` typo and
   the `assert`-based validation (13.1); add `personality(ADDR_NO_RANDOMIZE)`,
-  `PR_SET_TSC`, and `PTRACE_O_EXITKILL` to the child/monitor (13.2); lower the
-  CPU timeout and expose it as a flag; evaluate deterministic tasks once (13.3).
+  `PR_SET_TSC`, and `PTRACE_O_EXITKILL` to the child/monitor (13.2);
+  **[DONE]** lower the CPU timeout and expose it as a flag; evaluate
+  deterministic tasks once (13.3).
   All are small and each removes a real source of noise or waste.
 - **New item 3b (high leverage, low effort):** homologous crossover and
   same-offset template repair (13.4), then an instruction-length decoder and

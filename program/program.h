@@ -36,7 +36,12 @@ public:
   // TODO (RECOMMENDATIONS.md 2.2): give the scorers an interface to mock so
   // this subclass-and-poke pattern (and this ctor) can go away.
   Program() {}
-  Program(const char *filename) : elf_image_(filename) {}
+  // cpu_timeout_usec / wall_timeout_usec are forwarded to the Sandbox that
+  // executes this Program (see Sandbox for what each bounds).
+  Program(const char *filename,
+          long cpu_timeout_usec = Sandbox::kDefaultCpuTimeoutUsec,
+          long wall_timeout_usec = Sandbox::kDefaultWallTimeoutUsec)
+      : elf_image_(filename), sandbox_(cpu_timeout_usec, wall_timeout_usec) {}
 
   Program(const Program &) = delete;
   Program &operator=(const Program &) = delete;
@@ -44,7 +49,11 @@ public:
   bool IsInitialized() const { return elf_image_.IsInitialized(); }
 
   // Factory method to create Program instances based on one of the //elfs.
-  static std::shared_ptr<Program> Create(const std::string &filename);
+  // The timeouts are forwarded to the Program's Sandbox.
+  static std::shared_ptr<Program>
+  Create(const std::string &filename,
+         long cpu_timeout_usec = Sandbox::kDefaultCpuTimeoutUsec,
+         long wall_timeout_usec = Sandbox::kDefaultWallTimeoutUsec);
 
   // Execute the ELF in the Sandbox according to mode (see Sandbox::ExecuteMode)
   // and cache the outcome for the last_* accessors below. Returns the number of
@@ -78,6 +87,9 @@ public:
   int last_term_signal() const { return last_term_signal_; }
   int last_stop_signal() const { return last_stop_signal_; }
   const std::vector<int> &last_results() const { return last_results_; }
+
+  long cpu_timeout_usec() const { return sandbox_.cpu_timeout_usec(); }
+  long wall_timeout_usec() const { return sandbox_.wall_timeout_usec(); }
 
 protected:
   // The in-memory ELF (memfd + symbol data) this Program executes and modifies.
