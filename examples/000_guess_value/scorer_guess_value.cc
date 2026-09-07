@@ -5,15 +5,14 @@
 
 #include "scorer_guess_value.h"
 
-#include <assert.h>
-
-// TODO: Remove relative path.
+// TODO: Remove relative paths.
 #include "../../scorer/scorer_util.h"
+#include "../../util/check.h"
 
 namespace viaevo {
 
 ScorerGuessValue::ScorerGuessValue(int value) : value_(value) {
-  assert(value_ != -1 && "Value should not be -1.");
+  VIAEVO_CHECK(value_ != -1, "Value should not be -1.");
 }
 
 long long ScorerGuessValue::Score(const Program &program) const {

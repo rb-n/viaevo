@@ -22,6 +22,7 @@ cc_library(
         "//mutator",
         "//program",
         "//scorer",
+        "//util:check",
         "//util:random",
     ],
 )

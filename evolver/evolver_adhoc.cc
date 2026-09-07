@@ -17,6 +17,9 @@
 #include <string>
 #include <unordered_map>
 
+// TODO: Remove relative path.
+#include "../util/check.h"
+
 namespace viaevo {
 
 EvolverAdHoc::EvolverAdHoc(std::string elf_filename, int mu, int phi,
@@ -30,7 +33,9 @@ EvolverAdHoc::EvolverAdHoc(std::string elf_filename, int mu, int phi,
       max_generations_(max_generations),
       score_results_history_(score_results_history),
       output_filename_prefix_(output_filename_prefix) {
-  assert(phi_ >= 0 && mu_ >= phi_);
+  VIAEVO_CHECK(phi_ >= 0 && mu_ >= phi_,
+               "Expected 0 <= phi <= mu, got mu = " + std::to_string(mu_) +
+                   ", phi = " + std::to_string(phi_) + ".");
   for (int i = 0; i < mu_ + lambda_; ++i) {
     auto program = Program::Create(elf_filename);
     if (initialize_programs_to_all_nops) {

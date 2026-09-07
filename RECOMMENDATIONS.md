@@ -972,17 +972,54 @@ roadmap in §11 is amended at the end (13.10).
   (copy-paste from the recombine test). Harmless, but it made `--gtest_filter`
   and failure output misleading. The suite is now `MutatorCompositeRandomTest`;
   nothing referenced the old name.
-- **Input validation is `assert`-only and vanishes under `-c opt`.** Every
-  check in `ScorerMnistDigits::LoadData`/`LoadSample` (file open, magic bytes,
-  dimensions, read counts), the `ScorerGuessValue(-1)` guard, and the
-  `phi_ >= 0 && mu_ >= phi_` check in `EvolverAdHoc`'s constructor are
+- **[DONE]** **Input validation is `assert`-only and vanishes under `-c opt`.**
+  Every check in `ScorerMnistDigits::LoadData`/`LoadSample` (file open, magic
+  bytes, dimensions, read counts), the `ScorerGuessValue(-1)` guard, and the
+  `phi_ >= 0 && mu_ >= phi_` check in `EvolverAdHoc`'s constructor were
   `assert()`s. Bazel's `-c opt` defines `NDEBUG`, so an optimized build silently
-  proceeds with an unopened/truncated MNIST file (zeroed inputs, garbage labels)
-  or an invalid `phi`. The `EXPECT_DEATH` test for `ScorerGuessValue(-1)` would
-  also fail under `-c opt`. Replace these with unconditional checks (a
-  `CHECK`-style macro or the §2.1 error path); keep `assert` for internal
-  invariants only. This matters because 13.3 recommends actually building with
-  `-c opt`.
+  proceeded with an unopened/truncated MNIST file (zeroed inputs, garbage
+  labels) or an invalid `phi`.
+
+  `VIAEVO_CHECK(condition, message)` (`@/home/baran/prjs/viaevo/util/check.h`)
+  now provides an unconditional check that reports
+  `file:line: Check failed: condition: message` on stderr and exits with
+  `EXIT_FAILURE`. The message expression is evaluated only on failure, so it can
+  be composed from runtime values (filenames, actual vs expected sizes) at no
+  cost on the success path. Terminating in a single function keeps the §2.1
+  migration to exceptions a one-line change. All the checks above were
+  converted, as were the constructor-argument checks in `ScorerMock` and
+  `ScorerMarkedMock` (whose `EXPECT_DEATH` tests failed under `-c opt` for the
+  same reason). The only remaining `assert` is
+  `assert(n == scores.size())` in `EvolverAdHoc::SelectParents`, a genuine
+  internal invariant. Added `//util:check_test` plus death tests for a missing
+  MNIST images/labels file.
+
+  Fixing the `assert`s was necessary but not sufficient to make `-c opt` usable
+  — see the next item.
+- **[DONE]** **`-c opt` silently recompiled the template ELFs and changed the
+  evolvable substrate.** The templates in `elfs/` were plain `cc_binary`
+  targets, so they inherited the compilation mode of the rest of the project.
+  Under `-c opt` this changed the very thing being evolved, and 16 of 24 tests
+  failed. Three separate causes, all now pinned in `elfs/BUILD` via
+  `TEMPLATE_COPTS`/`TEMPLATE_LINKOPTS`:
+  - `-O2` folds away the `dummy` assignments that give the evolution something
+    to repurpose; `main` shrank from 3,304 to 2,573 bytes. Pinned `-O0`.
+  - Bazel links the PIC object in `fastbuild` but the non-PIC object in `opt`,
+    and PIC global accesses are longer — roughly 700 bytes of `main` on its own.
+    Pinned `-fPIC`.
+  - `opt` adds `-ffunction-sections -fdata-sections` and links with
+    `--gc-sections`, which drops the `inputs` global outright (nothing in `main`
+    references it, by design). Every test that loads a template then died with
+    `symbol inputs not found`, and `intermediate_small` segfaulted. Pinned
+    `-fno-function-sections -fno-data-sections` and
+    `-Wl,--no-gc-sections`, plus `-U_FORTIFY_SOURCE` to undo the
+    `_FORTIFY_SOURCE=1` that `opt` defines.
+
+  All six template ELFs are now byte-identical between `fastbuild` and `opt`
+  (verified by hash), and the default build's output is unchanged, so existing
+  runs remain reproducible. `bazel test //...` and `bazel test -c opt //...`
+  both pass 25/25. This unblocks the `-c opt` recommendation in 13.3, which
+  should be re-benchmarked now that the templates are held constant.
 - **The ignored `PTRACE_GETREGS` failure path leaks a zombie.** When
   `Sandbox::MonitorElfProcess` hits the "No such process" case it `return`s
   from inside the `waitpid` loop without ever reaping the child, so the process
@@ -1099,11 +1136,15 @@ recommendations, in order of payoff per effort:
   Pre-drawing also gives every program the same inputs (as now), makes the
   schedule serializable for checkpoints (§10.1), and is the natural place to
   add a fixed held-out set for champion validation (§12.3).
-- **Build with `-c opt` (after fixing the `assert`s in 13.1).** The run
-  scripts use the default `fastbuild`. Mutators copy the full `main` vector two
-  or three times per offspring and the parent-side monitor is C++ that benefits
-  from optimization; measure before assuming, but there is no reason to run
-  research workloads unoptimized. Add `--config=opt` to `.bazelrc`.
+- **Build with `-c opt`** (now unblocked: the `assert`s and the template
+  recompilation in 13.1 are fixed, and `bazel test -c opt //...` passes).
+  The run scripts use the default `fastbuild`. Mutators copy the full `main`
+  vector two or three times per offspring and the parent-side monitor is C++
+  that benefits from optimization; measure before assuming, but there is no
+  reason to run research workloads unoptimized. Add `--config=opt` to
+  `.bazelrc`. Note that the template ELFs are deliberately pinned to `-O0`
+  (and to PIC, no section GC) and so are unaffected by the switch — that is
+  the point: the substrate must not change when the framework is optimized.
 - **Zygote fork instead of `execveat` per evaluation.** The larger step beyond
   the worker pool in §8: exec each template *once* into a "zygote" that is
   stopped at the `main` breakpoint, then for every evaluation `fork()` the

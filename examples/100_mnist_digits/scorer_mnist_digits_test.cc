@@ -24,6 +24,26 @@ public:
   }
 };
 
+// The MNIST data files are validated with VIAEVO_CHECK rather than assert, so
+// a missing or malformed file aborts the run in every compilation mode. Under
+// -c opt (NDEBUG) the previous assert()s compiled out and the evolution
+// silently proceeded with zeroed inputs and garbage labels.
+TEST(ScorerMnistDigitsTest, FailOnMissingImagesFile) {
+  viaevo::RandomMock gen({0});
+  EXPECT_DEATH(viaevo::ScorerMnistDigits(
+                   gen, "no_such_images_file",
+                   "examples/100_mnist_digits/data/train-labels-idx1-ubyte"),
+               "Failed to open images data 'no_such_images_file'.");
+}
+
+TEST(ScorerMnistDigitsTest, FailOnMissingLabelsFile) {
+  viaevo::RandomMock gen({0});
+  EXPECT_DEATH(viaevo::ScorerMnistDigits(
+                   gen, "examples/100_mnist_digits/data/train-images-idx3-ubyte",
+                   "no_such_labels_file"),
+               "Failed to open labels data 'no_such_labels_file'.");
+}
+
 TEST(ScorerMnistDigitsTest, ResetInputs) {
   viaevo::RandomMock gen({0, 14, 4, 1});
   EXPECT_EQ(gen(), 0);

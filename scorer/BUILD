@@ -25,7 +25,10 @@ cc_library(
     srcs = ["scorer_mock.cc"],
     hdrs = ["scorer_mock.h"],
     visibility = ["//evolver:__pkg__"],
-    deps = [":scorer"],
+    deps = [
+        ":scorer",
+        "//util:check",
+    ],
 )
 
 cc_test(
@@ -43,7 +46,10 @@ cc_library(
     srcs = ["scorer_marked_mock.cc"],
     hdrs = ["scorer_marked_mock.h"],
     visibility = ["//evolver:__pkg__"],
-    deps = [":scorer"],
+    deps = [
+        ":scorer",
+        "//util:check",
+    ],
 )
 
 cc_test(

@@ -6,7 +6,9 @@
 #include "scorer_mock.h"
 
 #include <algorithm>
-#include <assert.h>
+
+// TODO: Remove relative path.
+#include "../util/check.h"
 
 namespace viaevo {
 
@@ -14,8 +16,8 @@ ScorerMock::ScorerMock(std::vector<long long> scores, long long max_score,
                        std::vector<int> current_inputs)
     : scores_(scores), max_score_(max_score), results_history_scores_({0}) {
   current_inputs_ = current_inputs;
-  assert(max_score_ >= *std::max_element(scores_.begin(), scores_.end()) &&
-         "max_score_ should not be smaller than any element in scores_");
+  VIAEVO_CHECK(max_score_ >= *std::max_element(scores_.begin(), scores_.end()),
+               "max_score_ should not be smaller than any element in scores_");
 }
 
 ScorerMock::ScorerMock(std::vector<long long> scores, long long max_score,
@@ -24,11 +26,12 @@ ScorerMock::ScorerMock(std::vector<long long> scores, long long max_score,
     : scores_(scores), max_score_(max_score),
       results_history_scores_(results_history_scores) {
   current_inputs_ = current_inputs;
-  assert(max_score_ >= *std::max_element(scores_.begin(), scores_.end()) +
-                           *std::max_element(results_history_scores_.begin(),
-                                             results_history_scores_.end()) &&
-         "max_score_ should not be smaller than max element in scores_ + plus "
-         "max element in results_history_scores_");
+  VIAEVO_CHECK(max_score_ >= *std::max_element(scores_.begin(), scores_.end()) +
+                                 *std::max_element(
+                                     results_history_scores_.begin(),
+                                     results_history_scores_.end()),
+               "max_score_ should not be smaller than max element in scores_ + "
+               "plus max element in results_history_scores_");
 }
 
 long long ScorerMock::Score(const Program &program) const {

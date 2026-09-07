@@ -5,7 +5,6 @@
 
 #include "scorer_mnist_digits.h"
 
-#include <assert.h>
 #include <signal.h>
 
 #include <cstddef>
@@ -13,10 +12,12 @@
 #include <fstream>
 #include <ios>
 #include <iostream>
+#include <string>
 #include <unordered_set>
 
-// TODO: Remove relative path.
+// TODO: Remove relative paths.
 #include "../../scorer/scorer_util.h"
+#include "../../util/check.h"
 
 namespace viaevo {
 
@@ -156,68 +157,78 @@ int ReadBigEndianInt(std::ifstream &ifs) {
 void ScorerMnistDigits::LoadData() {
   // Read and validate the images file header, then cache all pixel bytes.
   std::ifstream ifs_images(images_filename_, std::ios::binary);
-  assert(ifs_images.is_open() && "Failed to open images data.");
+  VIAEVO_CHECK(ifs_images.is_open(),
+               "Failed to open images data '" + images_filename_ + "'.");
   unsigned char c;
   for (int i = 0; i < 2; ++i) {
     ifs_images >> c;
-    assert(c == 0 && "Images file's first two bytes should be 0.");
+    VIAEVO_CHECK(c == 0, "Images file's first two bytes should be 0.");
   }
   unsigned char data_type, num_dimensions;
   ifs_images >> data_type >> num_dimensions;
-  assert(data_type == 8 &&
-         "Images data type is not the expected 'unsigned byte'.");
-  assert(num_dimensions == 3 &&
-         "Images dimensions do not have the expected value of 3.");
+  VIAEVO_CHECK(data_type == 8,
+               "Images data type is not the expected 'unsigned byte'.");
+  VIAEVO_CHECK(num_dimensions == 3,
+               "Images dimensions do not have the expected value of 3.");
 
   std::vector<int> dimensions_sizes(num_dimensions);
   for (int i = 0; i < num_dimensions; ++i) {
     dimensions_sizes[i] = ReadBigEndianInt(ifs_images);
   }
-  assert(dimensions_sizes[0] == num_samples_ &&
-         "Expected 60000 samples in images data.");
-  assert(dimensions_sizes[1] == 28 && dimensions_sizes[2] == 28 &&
-         "Expected images size to be 28x28.");
+  VIAEVO_CHECK(dimensions_sizes[0] == num_samples_,
+               "Expected " + std::to_string(num_samples_) +
+                   " samples in images data, got " +
+                   std::to_string(dimensions_sizes[0]) + ".");
+  VIAEVO_CHECK(dimensions_sizes[1] == 28 && dimensions_sizes[2] == 28,
+               "Expected images size to be 28x28.");
   image_size_ = dimensions_sizes[1] * dimensions_sizes[2];
 
   images_data_.resize((std::size_t)num_samples_ * image_size_);
   ifs_images.read(reinterpret_cast<char *>(images_data_.data()),
                   images_data_.size());
-  assert(!ifs_images.bad() &&
-         ifs_images.gcount() == (std::streamsize)images_data_.size() &&
-         "Failed to read images data.");
+  VIAEVO_CHECK(!ifs_images.bad() &&
+                   ifs_images.gcount() == (std::streamsize)images_data_.size(),
+               "Failed to read " + std::to_string(images_data_.size()) +
+                   " bytes of images data from '" + images_filename_ + "'.");
   ifs_images.close();
 
   // Read and validate the labels file header, then cache all label bytes.
   std::ifstream ifs_labels(labels_filename_, std::ios::binary);
-  assert(ifs_labels.is_open() && "Failed to open labels data.");
+  VIAEVO_CHECK(ifs_labels.is_open(),
+               "Failed to open labels data '" + labels_filename_ + "'.");
   for (int i = 0; i < 2; ++i) {
     ifs_labels >> c;
-    assert(c == 0 && "Labels file's first two bytes should be 0.");
+    VIAEVO_CHECK(c == 0, "Labels file's first two bytes should be 0.");
   }
   ifs_labels >> data_type >> num_dimensions;
-  assert(data_type == 8 &&
-         "Labels data type is not the expected 'unsigned byte'.");
-  assert(num_dimensions == 1 &&
-         "Labels dimensions do not have the expected value of 1.");
+  VIAEVO_CHECK(data_type == 8,
+               "Labels data type is not the expected 'unsigned byte'.");
+  VIAEVO_CHECK(num_dimensions == 1,
+               "Labels dimensions do not have the expected value of 1.");
 
   std::vector<int> label_dimensions_sizes(num_dimensions);
   for (int i = 0; i < num_dimensions; ++i) {
     label_dimensions_sizes[i] = ReadBigEndianInt(ifs_labels);
   }
-  assert(label_dimensions_sizes[0] == num_samples_ &&
-         "Expected 60000 samples in labels data.");
+  VIAEVO_CHECK(label_dimensions_sizes[0] == num_samples_,
+               "Expected " + std::to_string(num_samples_) +
+                   " samples in labels data, got " +
+                   std::to_string(label_dimensions_sizes[0]) + ".");
 
   labels_data_.resize(num_samples_);
   ifs_labels.read(reinterpret_cast<char *>(labels_data_.data()),
                   labels_data_.size());
-  assert(!ifs_labels.bad() &&
-         ifs_labels.gcount() == (std::streamsize)labels_data_.size() &&
-         "Failed to read labels data.");
+  VIAEVO_CHECK(!ifs_labels.bad() &&
+                   ifs_labels.gcount() == (std::streamsize)labels_data_.size(),
+               "Failed to read " + std::to_string(labels_data_.size()) +
+                   " bytes of labels data from '" + labels_filename_ + "'.");
   ifs_labels.close();
 }
 
 void ScorerMnistDigits::LoadSample(int pos) {
-  assert(pos >= 0 && pos < num_samples_ && "Sample position out of range.");
+  VIAEVO_CHECK(pos >= 0 && pos < num_samples_,
+               "Sample position " + std::to_string(pos) +
+                   " out of range [0, " + std::to_string(num_samples_) + ").");
 
   // Copy the image's pixel bytes from the cache into current_inputs_. The
   // buffer is sized as before (one extra int for padding) and zero-initialized

@@ -6,7 +6,9 @@
 #include "scorer_marked_mock.h"
 
 #include <algorithm>
-#include <assert.h>
+
+// TODO: Remove relative path.
+#include "../util/check.h"
 
 namespace viaevo {
 
@@ -21,11 +23,12 @@ ScorerMarkedMock::ScorerMarkedMock(
   for (auto &p : scores_) {
     highest_score = std::max(highest_score, p.second);
   }
-  assert(max_score_ >=
-             highest_score + *std::max_element(results_history_scores_.begin(),
-                                               results_history_scores_.end()) &&
-         "max_score_ should not be smaller than max element in scores_ + plus "
-         "max element in results_history_scores_");
+  VIAEVO_CHECK(max_score_ >= highest_score +
+                                 *std::max_element(
+                                     results_history_scores_.begin(),
+                                     results_history_scores_.end()),
+               "max_score_ should not be smaller than max element in scores_ + "
+               "plus max element in results_history_scores_");
 }
 
 long long ScorerMarkedMock::Score(const Program &program) const {

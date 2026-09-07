@@ -43,3 +43,26 @@ cc_test(
         "@googletest//:gtest_main",
     ],
 )
+
+cc_library(
+    name = "check",
+    srcs = ["check.cc"],
+    hdrs = ["check.h"],
+    visibility = [
+        "//evolver:__pkg__",
+        "//examples:__subpackages__",
+        "//mutator:__pkg__",
+        "//program:__pkg__",
+        "//scorer:__pkg__",
+    ],
+)
+
+cc_test(
+    name = "check_test",
+    size = "small",
+    srcs = ["check_test.cc"],
+    deps = [
+        ":check",
+        "@googletest//:gtest_main",
+    ],
+)

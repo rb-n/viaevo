@@ -9,6 +9,7 @@ cc_library(
     deps = [
         "//scorer",
         "//scorer:scorer_util",
+        "//util:check",
         "//util:random",
     ],
 )
