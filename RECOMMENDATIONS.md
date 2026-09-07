@@ -960,17 +960,18 @@ roadmap in §11 is amended at the end (13.10).
 
 ### 13.1 Concrete defects
 
-- **`mutator_recombine_plain_elf_test` never compiles its test file.** In
-  `mutator/BUILD` the `cc_test` lists `srcs = ["mutator_recombine_plain_elf.cc"]`
+- **[DONE]** **`mutator_recombine_plain_elf_test` never compiles its test file.**
+  In `mutator/BUILD` the `cc_test` listed `srcs = ["mutator_recombine_plain_elf.cc"]`
   (the library source) instead of `mutator_recombine_plain_elf_test.cc`. The
-  binary links `gtest_main` with zero test cases and reports
+  binary linked `gtest_main` with zero test cases and reported
   `[  PASSED  ] 0 tests` — verified via `bazel test`. The two tests in
   `mutator_recombine_plain_elf_test.cc` (`Mutate`, `InitializeProgramToAllNops`)
-  have therefore never run under Bazel. One-line fix; then check whether the
-  tests still pass, since they may have bit-rotted.
-- **`mutator_composite_random_test.cc` names its suite `MutatorRecombineRandomTest`**
-  (copy-paste from the recombine test). Harmless, but it makes `--gtest_filter`
-  and failure output misleading.
+  had therefore never run under Bazel. `srcs` now names the test file; both
+  tests compile and pass unchanged (they had not bit-rotted).
+- **[DONE]** **`mutator_composite_random_test.cc` names its suite `MutatorRecombineRandomTest`**
+  (copy-paste from the recombine test). Harmless, but it made `--gtest_filter`
+  and failure output misleading. The suite is now `MutatorCompositeRandomTest`;
+  nothing referenced the old name.
 - **Input validation is `assert`-only and vanishes under `-c opt`.** Every
   check in `ScorerMnistDigits::LoadData`/`LoadSample` (file open, magic bytes,
   dimensions, read counts), the `ScorerGuessValue(-1)` guard, and the

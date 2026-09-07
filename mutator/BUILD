@@ -99,7 +99,7 @@ cc_library(
 cc_test(
     name = "mutator_recombine_plain_elf_test",
     size = "small",
-    srcs = ["mutator_recombine_plain_elf.cc"],
+    srcs = ["mutator_recombine_plain_elf_test.cc"],
     data = [
         "//elfs:intermediate_small",
         "//elfs:simple_small",

@@ -17,7 +17,7 @@
 
 namespace {
 
-TEST(MutatorRecombineRandomTest, Mutate) {
+TEST(MutatorCompositeRandomTest, Mutate) {
   std::shared_ptr<viaevo::Program> target =
       viaevo::Program::Create("elfs/simple_small");
 
