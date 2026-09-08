@@ -20,7 +20,7 @@ These are concrete defects found while reading the code. They undermine
 everything built on top, so fix them before the larger refactors.
 
 - **[DONE]** **`Random` stream operators have undefined behavior.** In
-  `@/home/baran/prjs/viaevo/util/random.h:38-48`, both `operator<<` and
+  `util/random.h:38-48`, both `operator<<` and
   `operator>>` are declared to return a stream reference but contain no
   `return` statement. Falling off the end of a non-`void` function is UB. Add
   `return ost;` / `return ist;`. This matters because these operators are the
@@ -28,8 +28,8 @@ everything built on top, so fix them before the larger refactors.
 
 - **[DONE]** **Signed/unsigned mismatch in `last_rip_offset_`.** It is
   `unsigned long long` initialized to `-1`
-  (`@/home/baran/prjs/viaevo/program/program.h:119`). In
-  `@/home/baran/prjs/viaevo/mutator/mutator_point_last_instruction.cc:24-25`
+  (`program/program.h:119`). In
+  `mutator/mutator_point_last_instruction.cc:24-25`
   the guard `last_rip_offset < 0` can never be true for an unsigned type, so
   the "outside mutable code" fallback only triggers via the `>= code.size()`
   branch and the sentinel `(unsigned long long)-1` accidentally happens to be
@@ -164,7 +164,7 @@ handling, the `Program` god-object, and a few idiomatic issues.
 
 ### 2.1 Error handling: replace `myfail`/`exit` with exceptions or `expected`
 
-`myfail` (`@/home/baran/prjs/viaevo/program/program.cc:30-33`) calls
+`myfail` (`program/program.cc:30-33`) calls
 `perror` + `exit(EXIT_FAILURE)` on any error. This is fine for a script but bad
 for a library:
 
@@ -195,7 +195,7 @@ reading, and code mutation accessors. Consider splitting:
   monitoring, results reading).
 - **[DONE]** `ElfLayout`/`SymbolData` resolver — the `InitializeElfSymbolData`
   logic (~140 lines) is now a standalone free function `ResolveElfSymbolData(int
-  fd)` with the `SymbolData` struct in `@/home/baran/prjs/viaevo/program/elf_layout.h`
+  fd)` with the `SymbolData` struct in `program/elf_layout.h`
   / `elf_layout.cc`, unit-tested in `program/elf_layout_test.cc`. `Program` now
   calls it from `Create`. (It still terminates on malformed input; the
   recoverable-error split is tracked in §2.1.)
@@ -213,7 +213,7 @@ reading, and code mutation accessors. Consider splitting:
   `program/sandbox_test.cc`.
 
 The awkward "default constructor for mocking" TODO
-(`@/home/baran/prjs/viaevo/program/program.h`) is **still open**: the example
+(`program/program.h`) is **still open**: the example
 scorer tests subclass `Program`, default-construct it, and set the `protected`
 `last_results_` / `last_stop_signal_` directly (`ProgramMock` in the four
 example `scorer_*_test.cc` files, plus a bare `viaevo::Program program;` in
@@ -255,7 +255,7 @@ first initialization.
 ### 2.5 Configuration object instead of long ctor parameter lists
 
 `EvolverAdHoc`'s constructor takes 11 parameters
-(`@/home/baran/prjs/viaevo/evolver/evolver_adhoc.h:29-34`) and `main.cc` mirrors
+(`evolver/evolver_adhoc.h:29-34`) and `main.cc` mirrors
 them as flags. Introduce an `EvolverConfig` struct (designated initializers in
 C++20, or a builder). This makes adding parameters non-breaking and lets you
 serialize the exact config alongside results for reproducibility.
@@ -263,7 +263,7 @@ serialize the exact config alongside results for reproducibility.
 ### 2.6 Abstract the `Evolver`
 
 **[PARTIALLY DONE]** Extracted an abstract `Evolver` interface
-(`@/home/baran/prjs/viaevo/evolver/evolver.h`) with a pure-virtual `Run()`, and
+(`evolver/evolver.h`) with a pure-virtual `Run()`, and
 made `EvolverAdHoc` derive from it. The three stages are now separate,
 unit-tested member functions: `SelectParents`, `CreateOffspring`, and
 `EvaluatePrograms` (see `EvolverAdHocTest.CreateOffspring` /
@@ -344,7 +344,7 @@ fires; the marker only replaces the *counting* of pre-`main` stops.
 ## 4. Making template programs more evolvable
 
 This is the highest-leverage research lever. Today `simple_small.c`
-(`@/home/baran/prjs/viaevo/elfs/simple_small.c`) is mostly `nop`s + chained
+(`elfs/simple_small.c`) is mostly `nop`s + chained
 `dummy[i]=dummy[i+1]` assignments + a few `jmp .+127`. The README already
 observes that all-`nop` starts never make progress, and that having *something*
 (assignments) bootstraps evolution. Build on that insight deliberately:
@@ -630,16 +630,16 @@ below flag where each depends on the `int3` marker (§3) and the worker pool
 The state to persist is small and mostly already serializable:
 
 - **Population.** Each `Program`'s evolvable code can be written out with
-  `Program::SaveElf` (`@/home/baran/prjs/viaevo/program/program.h:68`) and
+  `Program::SaveElf` (`program/program.h:68`) and
   reconstructed via `Program::Create`
-  (`@/home/baran/prjs/viaevo/program/program.h:44`). A checkpoint is the
+  (`program/program.h:44`). A checkpoint is the
   `mu_+lambda_` ELF blobs in `programs_` order plus their current scores.
 - **RNG state.** `Random`'s `operator<<`/`operator>>` (fixed in §1,
-  `@/home/baran/prjs/viaevo/util/random.h:32-50`) round-trip the generator.
+  `util/random.h:32-50`) round-trip the generator.
   Persist the master `gen_`, and once per-program/per-worker streams exist
   (§8), each stream's state too.
 - **Evolver bookkeeping.** `current_generation_`
-  (`@/home/baran/prjs/viaevo/evolver/evolver_adhoc.h:69`), the full config
+  (`evolver/evolver_adhoc.h:69`), the full config
   (mu/phi/lambda/evaluations/max_generations/score_results_history), and the
   scorer's input schedule so the same inputs are drawn after resume.
 
@@ -660,7 +660,7 @@ Recommendations:
 ### 10.2 Seed a run by mixing evolved programs and/or template ELFs
 
 Today the entire population is cloned from a single `elf_filename`
-(`@/home/baran/prjs/viaevo/evolver/evolver_adhoc.cc:33-39`). Generalize seeding:
+(`evolver/evolver_adhoc.cc:33-39`). Generalize seeding:
 
 - **Accept a list of seed ELFs with weights/counts** (evolved champions from
   prior runs and/or `//elfs` templates) and fill the initial `programs_` from
@@ -683,7 +683,7 @@ reject/pad mismatches explicitly rather than silently.
 ### 10.3 Interactive terminal monitoring and control
 
 `Run()` currently streams a single fixed progress line
-(`@/home/baran/prjs/viaevo/evolver/evolver_adhoc.cc:67-129`) and offers no
+(`evolver/evolver_adhoc.cc:67-129`) and offers no
 control once started. A terminal UI/REPL would help:
 
 - **Monitoring:** live best/median/worst score, a score histogram,
@@ -767,7 +767,7 @@ that `phi_` parents were chosen at random, exactly as the README's Methods
 section and every example's `--phi` flag help describe. The refactor in commit
 `56d4473` ("Select parents using scores kept in the Evolver") replaced this
 with a plain descending `stable_sort` in `SelectParents`
-(`@/home/baran/prjs/viaevo/evolver/evolver_adhoc.cc:42-63`) and silently
+(`evolver/evolver_adhoc.cc:42-63`) and silently
 dropped the φ behavior. Consequences:
 
 - Selection is now purely elitist; the stochastic-ranking-inspired mechanism
@@ -807,7 +807,7 @@ index array), and consider re-running the all-`nop` experiment afterwards.
 
 `Run()` updates `best_overall_score` by comparing generation-best scores that
 were measured on *different* randomly drawn inputs
-(`@/home/baran/prjs/viaevo/evolver/evolver_adhoc.cc:166`). For input-dependent
+(`evolver/evolver_adhoc.cc:166`). For input-dependent
 tasks (MNIST), a program can become the saved champion merely by drawing easy
 samples. Evaluate would-be champions on a fixed held-out input set before
 updating `best_overall_score`/saving the ELF, and report both numbers. (Also
@@ -824,7 +824,7 @@ finding below.
 
 `RunElfProcess` installs the seccomp filter *before* calling `PTRACE_TRACEME`,
 which forces `ptrace` into the allowlist
-(`@/home/baran/prjs/viaevo/program/program.cc:100`) — so the evolved program
+(`program/program.cc:100`) — so the evolved program
 itself is allowed to call `ptrace`. Reordering to `PTRACE_TRACEME` first, then
 installing the filter, lets `ptrace` be removed from the allowlist entirely.
 One less syscall the evolved code can reach.
@@ -983,7 +983,7 @@ roadmap in §11 is amended at the end (13.10).
   proceeded with an unopened/truncated MNIST file (zeroed inputs, garbage
   labels) or an invalid `phi`.
 
-  `VIAEVO_CHECK(condition, message)` (`@/home/baran/prjs/viaevo/util/check.h`)
+  `VIAEVO_CHECK(condition, message)` (`util/check.h`)
   now provides an unconditional check that reports
   `file:line: Check failed: condition: message` on stderr and exits with
   `EXIT_FAILURE`. The message expression is evaluated only on failure, so it can
